@@ -73,15 +73,9 @@ namespace boost
     #if defined(NT2_ASSERTS_AS_EXCEPTIONS) && !defined(NT2_NO_EXCEPTIONS)
     std::ostringstream ss;
     ss << f << ':' << l << ": " << fn << ": Assertion " << expr << " failed.";
-    #ifndef BOOST_EXCEPTION_DISABLE
-    ::boost::exception_detail
-    ::throw_exception_(   ::nt2::assert_exception(ss.str())
-                        , fn,f,l
-                      );
-    #else
-    ::boost::throw_exception(   ::nt2::assert_exception(ss.str())
-                            );
-    #endif
+
+    ::boost::throw_exception( ::nt2::assert_exception(ss.str()) );
+
     #elif defined(NT2_DEBUG)
     fprintf(stderr,"%s:%d: %s: Assertion %s failed.\n",f,l,fn,expr);
     ::nt2::trap();
@@ -96,20 +90,18 @@ namespace boost
   // INTERNAL ONLY
   // Define a BOOST_ASSERT_MSG handler for the NT2_ASSERTS_AS_EXCEPTIONS mode.
   extern inline
-  void assertion_failed_msg(char const* expr, char const* msg, char const* fn, char const* f, long l)
+  void assertion_failed_msg ( char const* expr, char const* msg
+                            , char const* fn, char const* f, long l
+                            )
   {
     #if defined(NT2_ASSERTS_AS_EXCEPTIONS) && !defined(NT2_NO_EXCEPTIONS)
     std::ostringstream ss;
-    ss << f << ':' << l << ": " << fn << ": Assertion " << expr << " failed.\n\t" << msg;
-    #ifndef BOOST_EXCEPTION_DISABLE
-    ::boost::exception_detail
-    ::throw_exception_(   ::nt2::assert_exception(ss.str())
-                        , fn,f,l
-                      );
-    #else
-    ::boost::throw_exception(   ::nt2::assert_exception(ss.str())
-                            );
-    #endif
+    ss  << f  << ':' << l << ": " << fn
+        << ": Assertion " << expr << " failed.\n\t"
+        << msg;
+
+    ::boost::throw_exception( ::nt2::assert_exception(ss.str()) );
+
 #elif defined(NT2_DEBUG)
     fprintf(stderr,"%s:%d: %s: Assertion %s failed.\n\t%s",f,l,fn,expr,msg);
     ::nt2::trap();
