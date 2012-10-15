@@ -8,12 +8,12 @@
 ################################################################################
 cmake_minimum_required(VERSION 2.6)
 
-# We link statically with MSVC
-if(MSVC)
-  foreach(flag_var CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
-                   CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-    string(REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
-  endforeach()
+if( MSVC OR ( WIN32 AND DEFINED CMAKE_CROSSCOMPILING ) )
+	set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} /EHsc /GR-"       )
+	set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Oxs /Gy" )
+elseif( CMAKE_COMPILER_IS_GNUCXX )
+	set( CMAKE_CXX_FLAGS         "${CMAKE_CXX_FLAGS} -fexceptions -fno-rtti" )
+	set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os -fomit-frame-pointer -finline-small-functions" )
 endif()
 
 set(Boost_ADDITIONAL_VERSIONS "1.46" "1.46.0" "1.46.1" "1.47" "1.47.0" "1.48" "1.48.0")
