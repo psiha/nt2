@@ -10,24 +10,36 @@
 #define BOOST_SIMD_SDK_DETAILS_ALIASING_HPP_INCLUDED
 
 #include <boost/config.hpp>
+
+/// \note Consider also defaulting to no strict aliasing for Clang (it "wants"
+/// to have TBAA but it seems it still isn't enabled or implemented as code that
+/// heavily breaks the strict rules compiles w/o warnings and works as expected)
+/// and ICC (it has TBAA but defaults to off).
+///                                           (02.11.2012.) (Domagoj Saric)
+#if defined( BOOST_MSVC ) && !defined( BOOST_SIMD_NO_STRICT_ALIASING )
+    #define BOOST_SIMD_NO_STRICT_ALIASING
+#endif
+
+#ifdef BOOST_SIMD_NO_STRICT_ALIASING
+
+#define BOOST_SIMD_MAY_ALIAS
+
+namespace boost { namespace simd { namespace meta
+{
+    template <class T> struct may_alias { typedef T type; };
+} } }
+
+#else // BOOST_SIMD_NO_STRICT_ALIASING
+
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits/is_class.hpp>
 
-#ifndef BOOST_SIMD_NO_STRICT_ALIASING
-
-#ifdef BOOST_MSVC
-#define BOOST_SIMD_NO_STRICT_ALIASING
-#endif
-
 #ifdef __GNUC__
-#define BOOST_SIMD_MAY_ALIAS __attribute__((may_alias))
+    #define BOOST_SIMD_MAY_ALIAS __attribute__((may_alias))
+#else
+    #define BOOST_SIMD_MAY_ALIAS
 #endif
 
-#endif
-
-#ifndef BOOST_SIMD_MAY_ALIAS
-#define BOOST_SIMD_MAY_ALIAS
-#endif
 
 namespace boost { namespace simd { namespace meta
 {
@@ -43,5 +55,7 @@ namespace boost { namespace simd { namespace meta
     typedef T type;
   };
 } } }
+
+#endif // BOOST_SIMD_NO_STRICT_ALIASING
 
 #endif
