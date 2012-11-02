@@ -50,7 +50,16 @@
     // http://nondot.org/sabre/LLVMNotes/BuiltinUnreachable.txt
     #if ( __clang_major__ >= 2 ) || ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) >= 45 )
         #define BOOST_UNREACHABLE_CODE()  BOOST_ASSERT_MSG( false    , "This code should not be reached." ); __builtin_unreachable()
-        #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken."               ); do { if ( !( condition ) ) __builtin_unreachable(); } while ( 0 )
+        #if !defined( __clang__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 45 ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) < 48 )
+            // Broken/pessimization in GCC 4.6:
+            //  https://bugs.launchpad.net/gcc-linaro/+bug/1020601
+            //  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=50385
+            //  http://gcc.gnu.org/ml/gcc-patches/2012-07/msg00254.html
+            //  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=49054
+            #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken." );
+        #else
+            #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken." ); do { if ( !( condition ) ) __builtin_unreachable(); } while ( 0 )
+        #endif
     #else
         #define BOOST_UNREACHABLE_CODE()  BOOST_ASSERT_MSG( false    , "This code should not be reached." )
         #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken."               )
@@ -110,6 +119,42 @@ namespace boost
 {
 namespace simd
 {
+#ifdef __GNUC__
+namespace ext
+{
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::minus_      , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  {
+    typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() - a1(); }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::plus_       , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  {
+    typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() + a1(); }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::multiplies_ , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  {
+    typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() * a1(); }
+  };
+  //...zzz...not used...
+  //BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::divides_    , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  //{
+  //  typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() / a1(); }
+  //};
+  //...zzz...GCC compiler error ?? contrary to documentation ??
+  //BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_and_, boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  //{
+  //  typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() & a1(); }
+  //};
+  //BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_or_ , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  //{
+  //  typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() | a1(); }
+  //};
+  //BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_xor_, boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  //{
+  //  typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() ^ a1(); }
+  //};
+} // namespace ext
+#endif // __GNUC__
+
 namespace details
 {
     ////////////////////////////////////////////////////////////////////////////
@@ -119,7 +164,7 @@ namespace details
     //
     ////////////////////////////////////////////////////////////////////////////
 
-#ifdef BOOST_SIMD_HAS_SSE_SUPPORT
+#if defined( BOOST_SIMD_HAS_SSE_SUPPORT )
     template <> BOOST_FORCEINLINE __m128 shuffle<0, 1, 0, 1>( __m128 const lower, __m128 const upper ) { return _mm_movelh_ps( lower, upper ); }
     template <> BOOST_FORCEINLINE __m128 shuffle<2, 3, 2, 3>( __m128 const lower, __m128 const upper ) { return _mm_movehl_ps( upper, lower ); }
 
@@ -148,6 +193,30 @@ namespace details
     //_mm_move_ss
     //_mm_unpackhi_*
     //_mm_unpacklo_*
+#elif defined( __GNUC__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 )
+    typedef int shuffle_mask_t __attribute__(( vector_size( 16 ) ));
+    template
+    <
+        unsigned int lower_i0, unsigned int lower_i1,
+        unsigned int upper_i0, unsigned int upper_i1,
+        typename Vector
+    >
+    BOOST_FORCEINLINE Vector shuffle( Vector const & lower, Vector const & upper )
+    {
+      shuffle_mask_t const mask = { lower_i0, lower_i1, 4 + upper_i0, 4 + upper_i1 };
+      return __builtin_shuffle( lower, upper, mask );
+    }
+
+    template
+    <
+        unsigned int i0, unsigned int i1, unsigned int i2, unsigned int i3,
+        typename Vector
+    >
+    BOOST_FORCEINLINE Vector shuffle( Vector const & vector )
+    {
+      shuffle_mask_t const mask = { i0, i1, i2, i3 };
+      return __builtin_shuffle( vector, mask );
+    }
 #else
     template
     <
@@ -562,6 +631,28 @@ namespace detail
         );
     }
 
+    template <bool e0, bool e1, bool e2, bool e3, typename Vector>
+    BOOST_FORCEINLINE void flip_sign( Vector & vector ){ vector ^= *sign_flipper<Vector, e0, e1, e2, e3>(); }
+
+    //...zzz..."no load from memory idea" playground...
+    template <typename Vector>
+    BOOST_FORCEINLINE void negate_upper( Vector & vector )
+    {
+    #ifdef BOOST_SIMD_HAS_SSE2
+        //idea a)
+        //__m128i  const singleneg( _mm_cvtsi32_si128( 1 << 31 ) );
+        //__m128i  const negate_lower( _mm_unpacklo_epi32( singleneg, singleneg ) );
+        //__m128   const negate_upper( _mm_movelh_ps( _mm_castsi128_ps( negate_lower ), _mm_setzero_ps() ) );
+        //idea b)
+        //__m128i const negate_upper_upper( _mm_insert_epi16( _mm_setzero_si128(), 1 << 15, 7 ) );
+        //__m128  const negate_upper      ( _mm_castsi128_ps( _mm_unpackhi_epi32( negate_upper_upper, negate_upper_upper ) ) );
+        //vector = _mm_xor_ps( vector, negate_upper );
+      flip_sign<false, false, true, true>( vector );
+    #else
+        flip_sign<false, false, true, true>( vector );
+    #endif // BOOST_SIMD_HAS_SSE2
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////
     ///
@@ -900,8 +991,8 @@ namespace detail
     private:
         char * BOOST_DISPATCH_RESTRICT p_reals_;
         char * BOOST_DISPATCH_RESTRICT p_imags_;
-        unsigned int       counter_      ;
         unsigned int const log2_N4_bytes_; ///< log2( N/4 ) * sizeof( scalar_t )
+        unsigned int       counter_      ;
 #else
     private:
         static unsigned int const total_pointers      = 8;
@@ -964,11 +1055,11 @@ namespace detail
         template <unsigned int part> typename pointer_type<1 * 4 + part>::type const & i_prefetched_element() const { return prefetched_element<1 * 4 + part>(); }
 
     private:
+        boost::simd::details::extra_integer_register counter_;
         vector_t           * BOOST_DISPATCH_RESTRICT gp_pointers_   [ gp_registers_to_use                  ];
     #ifdef BOOST_SIMD_HAS_EXTRA_GP_REGISTERS
         extra_vector_ptr_t                           extra_pointers_[ total_pointers - gp_registers_to_use ];
     #endif
-        boost::simd::details::extra_integer_register counter_;
 #endif // NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
     }; // inplace_separated_context_t
 
@@ -1982,7 +2073,7 @@ namespace detail
     unsigned int const idx2( 2 );
     unsigned int const idx3( 3 );
 
-    #if !defined( BOOST_SIMD_DETECTED )
+    #if !defined( BOOST_SIMD_DETECTED ) && !( defined( __GNUC__ ) && defined( __ARM_NEON__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 ) )
         typedef typename Vector::value_type scalar_t;
 
         scalar_t const r2( real_in[ idx2 ] );
@@ -2073,7 +2164,7 @@ namespace detail
         unsigned int const idx2( 2 );
         unsigned int const idx3( 3 );
 
-    #if !defined( BOOST_SIMD_DETECTED )
+    #if !defined( BOOST_SIMD_DETECTED ) && !( defined( __GNUC__ ) && defined( __ARM_NEON__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 ) )
         typedef typename Vector::value_type scalar_t;
 
         scalar_t r0( real_in[ idx0 ] ); scalar_t i0( imag_in[ idx0 ] );
@@ -2107,22 +2198,21 @@ namespace detail
 
     #else // BOOST_SIMD_DETECTED
         typedef          Vector             vector_t;
+        using boost::simd::details::shuffle;
 
         vector_t const real( real_in ); vector_t const imag( imag_in );
 
         vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_upper ( sign_flipper<vector_t, false, false, true, true >() );
         vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_middle( sign_flipper<vector_t, false, true , true, false>() );
 
-        vector_t const r01i01( boost::simd::details::shuffle<idx0, idx1, idx0, idx1>( real, imag ) );
-        vector_t const r23i23( boost::simd::details::shuffle<idx2, idx3, idx2, idx3>( real, imag ) );
+        vector_t const r01i01( shuffle<idx0, idx1, idx0, idx1>( real, imag ) );
+        vector_t const r23i23( shuffle<idx2, idx3, idx2, idx3>( real, imag ) );
 
         vector_t const ri_plus ( r01i01 + r23i23 );
         vector_t const ri_minus( r01i01 - r23i23 );
 
-        vector_t const r_left ( boost::simd::details::shuffle<idx0, idx0, idx0, idx0>( ri_plus, ri_minus ) );
-        vector_t const i_left ( boost::simd::details::shuffle<idx2, idx2, idx2, idx2>( ri_plus, ri_minus ) );
-        vector_t       r_right( boost::simd::details::shuffle<idx1, idx1, idx3, idx3>( ri_plus, ri_minus ) );
-        vector_t const i_right( boost::simd::details::shuffle<idx3, idx3, idx1, idx1>( ri_plus, ri_minus ) );
+        vector_t const r_left ( shuffle<idx0, idx0, idx0, idx0>( ri_plus, ri_minus ) ); vector_t const i_left ( shuffle<idx2, idx2, idx2, idx2>( ri_plus, ri_minus ) );
+        vector_t       r_right( shuffle<idx1, idx1, idx3, idx3>( ri_plus, ri_minus ) ); vector_t const i_right( shuffle<idx3, idx3, idx1, idx1>( ri_plus, ri_minus ) );
         r_right ^= *p_negate_upper;
 
         real_out = r_left + ( r_right ^ *p_negate_middle );
@@ -2143,7 +2233,7 @@ namespace detail
         typedef          Vector             vector_t;
         typedef typename Vector::value_type scalar_t;
 
-    #if !defined( BOOST_SIMD_DETECTED )
+    #if !defined( BOOST_SIMD_DETECTED ) && !( defined( __GNUC__ ) && defined( __ARM_NEON__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 ) )
         scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_real( lower_real.data() );
         scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_imag( lower_imag.data() );
         scalar_t * BOOST_DISPATCH_RESTRICT const p_upper_real( upper_real.data() );
@@ -2185,7 +2275,8 @@ namespace detail
         {
             scalar_t const r0m4( r0 - r4 ); scalar_t const i0m4( i0 - i4 );
             scalar_t const r1m5( r1 - r5 ); scalar_t const i1m5( i1 - i5 );
-            // "merged" the "reversedness" of the fourth quarter:
+            // "merged" the "reversedness" of the fourth quarter and
+            // multiplication by i:
             scalar_t const r2m6( i6 - i2 ); scalar_t const i2m6( r2 - r6 );
             scalar_t const r3m7( i7 - i3 ); scalar_t const i3m7( r3 - r7 );
 
@@ -2244,8 +2335,8 @@ namespace detail
         // butterfly:
         {
             vector_t const lower_r_in( lower_real );
-            vector_t const lower_i_in( lower_imag );
             vector_t const upper_r_in( upper_real );
+            vector_t const lower_i_in( lower_imag );
             vector_t const upper_i_in( upper_imag );
 
             vector_t const lower_p_upper_r( lower_r_in + upper_r_in ); vector_t const lower_p_upper_i(  lower_i_in + upper_i_in );
@@ -2253,7 +2344,6 @@ namespace detail
 
             // we can already calculate the lower DFT4 so we do it to free up
             // registers:
-            vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_upper( sign_flipper<vector_t, false, false, true, true>() );
             {
                 //...zzz...manually inlined for testing ("in search of optimal register allocation")...
                 //dif::dft_4<vector_t>
@@ -2261,18 +2351,15 @@ namespace detail
                 //    lower_p_upper_r, lower_p_upper_i,
                 //    lower_real     , lower_imag
                 //);
-
-                vector_t const r01i01( boost::simd::details::shuffle<0, 1, 0, 1>( lower_p_upper_r, lower_p_upper_i ) );
-                vector_t const r23i23( boost::simd::details::shuffle<2, 3, 2, 3>( lower_p_upper_r, lower_p_upper_i ) );
+                vector_t const r01i01( shuffle<0, 1, 0, 1>( lower_p_upper_r, lower_p_upper_i ) );
+                vector_t const r23i23( shuffle<2, 3, 2, 3>( lower_p_upper_r, lower_p_upper_i ) );
 
                 vector_t const ri_plus ( r01i01 + r23i23 );
                 vector_t const ri_minus( r01i01 - r23i23 );
 
-                vector_t const r_left ( boost::simd::details::shuffle<0, 0, 0, 0>( ri_plus, ri_minus ) );
-                vector_t const i_left ( boost::simd::details::shuffle<2, 2, 2, 2>( ri_plus, ri_minus ) );
-                vector_t       r_right( boost::simd::details::shuffle<1, 1, 3, 3>( ri_plus, ri_minus ) );
-                vector_t const i_right( boost::simd::details::shuffle<3, 3, 1, 1>( ri_plus, ri_minus ) );
-                r_right ^= *p_negate_upper;
+                vector_t const r_left ( shuffle<0, 0, 0, 0>( ri_plus, ri_minus ) ); vector_t const i_left ( shuffle<2, 2, 2, 2>( ri_plus, ri_minus ) );
+                vector_t       r_right( shuffle<1, 1, 3, 3>( ri_plus, ri_minus ) ); vector_t const i_right( shuffle<3, 3, 1, 1>( ri_plus, ri_minus ) ); // <- integrated multiplication
+                negate_upper( r_right );                                                                                                                // <- by i
 
                 vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_middle( sign_flipper<vector_t, false, true, true , false>() );
                 lower_real = r_left + ( r_right ^ *p_negate_middle );
@@ -2282,16 +2369,17 @@ namespace detail
             {
                 // multiplication by i:
                 vector_t const lower_m_upper_r_copy( lower_m_upper_r );
-                lower_m_upper_r = boost::simd::details::shuffle<0, 1, 2, 3>( lower_m_upper_r, lower_m_upper_i      );
-                lower_m_upper_i = boost::simd::details::shuffle<0, 1, 2, 3>( lower_m_upper_i, lower_m_upper_r_copy );
-                lower_m_upper_r ^= *p_negate_upper;
+                lower_m_upper_r = shuffle<0, 1, 2, 3>( lower_m_upper_r, lower_m_upper_i      );
+                lower_m_upper_i = shuffle<0, 1, 2, 3>( lower_m_upper_i, lower_m_upper_r_copy );
+                negate_upper( lower_m_upper_r );
             }
 
             vector_t const r_left ( repeat_lower_half( lower_m_upper_r ) ); vector_t const i_left ( repeat_lower_half( lower_m_upper_i ) );
-            vector_t const r_right( repeat_upper_half( lower_m_upper_r ) ); vector_t const i_right( repeat_upper_half( lower_m_upper_i ) );
-
-            upper_r = r_left - ( r_right ^ *p_negate_upper );
-            upper_i = i_left - ( i_right ^ *p_negate_upper );
+            vector_t       r_right( repeat_upper_half( lower_m_upper_r ) ); vector_t       i_right( repeat_upper_half( lower_m_upper_i ) );
+            negate_upper( r_right );
+            negate_upper( i_right );
+            upper_r = r_left - r_right;
+            upper_i = i_left - i_right;
 
             // the twiddling of the 5th and 7th elements (see the scalar
             // version) is merged into the upper DFT2 calculations below:
@@ -2299,16 +2387,14 @@ namespace detail
 
         // merged two upper DFT2s:
         {
-            vector_t const r4466( boost::simd::details::shuffle<0, 0, 2, 2>( upper_r ) );
-            vector_t const i4466( boost::simd::details::shuffle<0, 0, 2, 2>( upper_i ) );
-            vector_t       r5577( boost::simd::details::shuffle<1, 1, 3, 3>( upper_r ) );
-            vector_t       i5577( boost::simd::details::shuffle<1, 1, 3, 3>( upper_i ) );
+            vector_t const r4466( shuffle<0, 0, 2, 2>( upper_r ) ); vector_t const i4466( shuffle<0, 0, 2, 2>( upper_i ) );
+            vector_t       r5577( shuffle<1, 1, 3, 3>( upper_r ) ); vector_t       i5577( shuffle<1, 1, 3, 3>( upper_i ) );
             vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_odd( sign_flipper<vector_t, false, true, false, true>() );
             scalar_t const sqrt2      ( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
             vector_t const twiddles   ( make<vector_t>( +sqrt2, -sqrt2, -sqrt2, -sqrt2 ) );
             vector_t const twiddled_57( ( r5577 + ( i5577 ^ *p_negate_odd ) ) * twiddles );
-            r5577 = boost::simd::details::shuffle<0, 0, 3, 3>( twiddled_57 );
-            i5577 = boost::simd::details::shuffle<1, 1, 2, 2>( twiddled_57 );
+            r5577 = shuffle<0, 0, 3, 3>( twiddled_57 );
+            i5577 = shuffle<1, 1, 2, 2>( twiddled_57 );
             upper_real = r4466 + ( r5577 ^ *p_negate_odd );
             upper_imag = i4466 + ( i5577 ^ *p_negate_odd );
         }
@@ -2458,7 +2544,8 @@ namespace detail
             vector_t * BOOST_DISPATCH_RESTRICT const p_r2( &p_reals[ 2 ] ); vector_t * BOOST_DISPATCH_RESTRICT const p_i2( &p_imags[ 2 ] );
             vector_t * BOOST_DISPATCH_RESTRICT const p_r3( &p_reals[ 3 ] ); vector_t * BOOST_DISPATCH_RESTRICT const p_i3( &p_imags[ 3 ] );
 
-        #ifdef BOOST_SIMD_DETECTED //...zzz...manually inlined for testing ("in search of optimal register allocation")...
+        #if defined( BOOST_SIMD_DETECTED ) || ( defined( __GNUC__ ) && defined( __ARM_NEON__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 ) )
+            //...zzz...manually inlined for testing ("in search of optimal register allocation")...
 
             vector_t const t0p2_r( *p_r0 + *p_r2 );
             vector_t const t0m2_r( *p_r0 - *p_r2 );
