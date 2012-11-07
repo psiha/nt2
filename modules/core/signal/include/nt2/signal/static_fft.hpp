@@ -3,6 +3,23 @@
 //         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
 //         Copyright 2012          Domagoj Saric, Little Endian Ltd.
 //
+//
+// "The FFT is one of the truly great computational developments of [the 20th]
+// century. It has changed the face of science and engineering so much that it
+// is not an exaggeration to say that life as we know it would be very different
+// without the FFT." Charles van Loan
+//
+// "In 1990, it was estimated that Cray Research's installed base of
+// approximately 200 machines spent 40% of all CPU cycles computing the fast
+// Fourier transform (FFT). With each machine worth about USD$25 million, the
+// performance of the FFT was of prime importance."
+// http://cnx.org/content/m43792/latest
+//
+// "If you speed up any nontrivial algorithm by a factor of a million or so the
+// world will beat a path towards finding useful applications for it."
+// Numerical Recipes
+//
+//
 //          Distributed under the Boost Software License, Version 1.0.
 //                 See accompanying file LICENSE.txt or copy at
 //                     http://www.boost.org/LICENSE_1_0.txt
@@ -172,28 +189,22 @@ namespace details
     template <> BOOST_FORCEINLINE __m128 shuffle<2, 2, 3, 3>( __m128 const single_vector ) { return _mm_unpackhi_ps( single_vector, single_vector ); }
 
     #ifdef BOOST_SIMD_HAS_SSE2_SUPPORT
-        template <> BOOST_FORCEINLINE __m128 shuffle<0, 1, 2, 3>( __m128 const lower, __m128 const upper )
-        {
-            return _mm_castpd_ps( _mm_move_sd( _mm_castps_pd( upper ), _mm_castps_pd( lower ) ) );
-        }
+    template <> BOOST_FORCEINLINE __m128 shuffle<0, 1, 2, 3>( __m128 const lower, __m128 const upper ) { return _mm_castpd_ps( _mm_move_sd( _mm_castps_pd( upper ), _mm_castps_pd( lower ) ) ); }
     #endif // BOOST_SIMD_HAS_SSE2_SUPPORT
 
     #ifdef BOOST_SIMD_HAS_SSE3_SUPPORT
-        template <> BOOST_FORCEINLINE __m128 shuffle<0, 1, 0, 1>( __m128 const single_vector )
-        {
-            return _mm_castpd_ps( _mm_movedup_pd( _mm_castps_pd( single_vector ) ) );
-        }
-
-        template <> BOOST_FORCEINLINE __m128 shuffle<0, 0, 2, 2>( __m128 const single_vector ) { return _mm_moveldup_ps( single_vector ); }
-        template <> BOOST_FORCEINLINE __m128 shuffle<1, 1, 3, 3>( __m128 const single_vector ) { return _mm_movehdup_ps( single_vector ); }
+    template <> BOOST_FORCEINLINE __m128 shuffle<0, 1, 0, 1>( __m128 const single_vector ) { return _mm_castpd_ps( _mm_movedup_pd( _mm_castps_pd( single_vector ) ) ); }
+    template <> BOOST_FORCEINLINE __m128 shuffle<0, 0, 2, 2>( __m128 const single_vector ) { return _mm_moveldup_ps( single_vector ); }
+    template <> BOOST_FORCEINLINE __m128 shuffle<1, 1, 3, 3>( __m128 const single_vector ) { return _mm_movehdup_ps( single_vector ); }
     #endif // BOOST_SIMD_HAS_SSE3_SUPPORT
 
     //...zzz...to be continued...
-    //_mm_insert_*
-    //_mm_move_ss
+    //_mm_insert_* + _mm_extract_*
+    //_mm_blend_*
+    //_mm_move_s*
     //_mm_unpackhi_*
     //_mm_unpacklo_*
-#elif defined( __GNUC__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 )
+#elif defined( __GNUC__ ) && !defined( __clang__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 )
     typedef int shuffle_mask_t __attribute__(( vector_size( 16 ) ));
     template
     <
@@ -203,7 +214,7 @@ namespace details
     >
     BOOST_FORCEINLINE Vector shuffle( Vector const & lower, Vector const & upper )
     {
-      shuffle_mask_t const mask = { lower_i0, lower_i1, 4 + upper_i0, 4 + upper_i1 };
+      shuffle_mask_t const mask = { 0 + lower_i0, 0 + lower_i1, 4 + upper_i0, 4 + upper_i1 };
       return __builtin_shuffle( lower, upper, mask );
     }
 
@@ -342,11 +353,6 @@ namespace nt2
 // Original Todd Veldhuizen implementation:
 // http://www.oonumerics.org/blitz/examples/fft.html
 
-// Generic "polymorphic" radix-n framework:
-// http://osl.iu.edu/publications/prints/2002/zalewski_algorithms_2002.pdf
-// http://www.springerlink.com/content/63nmtp2b6x426lrp
-// http://books.google.hr/books?id=lqL4wL5aSkkC&pg=PA35&lpg=PA35&dq=class+radix_mapping&source=bl&ots=HDYK7Snudk&sig=-ZdI32QFWvrIHPPRiKpQ3Emvk_E&hl=hr&sa=X&ei=jqfET6iuJoLU-gbE0ImTCg&ved=0CEkQ6AEwAA#v=onepage&q=class%20radix_mapping&f=false
-
 // General DFT/FFT information and tutorials:
 // http://www.katjaas.nl/fourier/fourier.html
 // http://altdevblogaday.com/2011/05/17/understanding-the-fourier-transform
@@ -356,6 +362,7 @@ namespace nt2
 // http://www.briangough.com/fftalgorithms.pdf
 // http://cnx.org/content/col10550/latest
 // http://cnx.org/content/m16336/latest (FFTW)
+// http://www.ll.mit.edu/HPEC/agendas/proc03/pdfs/frigo.pdf (FFTW3)
 // http://www.freeinfosociety.com/media/pdf/2804.pdf
 // http://cr.yp.to/f2mult/mateer-thesis.pdf
 // http://cacs.usc.edu/education/phys516/c12-2.pdf
@@ -373,6 +380,7 @@ namespace nt2
 //   http://engr.case.edu/leinweber_lawrence/eecs701/Comparison%20of%20DFT%20Algorithms.pdf
 //   http://cnx.org/content/col11438/latest
 //   http://cr.yp.to/arith/tangentfft-20070919.pdf
+//   http://liu.diva-portal.org/smash/get/diva2:490459/FULLTEXT02
 //   http://www.apple.com/acg
 //   http://jsat.ewi.tudelft.nl/content/volume7/JSAT7_13_Haynal.pdf (http://www.softerhardware.com/fft/index.html)
 //   http://infoscience.epfl.ch/record/33931/files/VetterliN84.pdf
@@ -380,6 +388,7 @@ namespace nt2
 //   http://math.berkeley.edu/~strain/273.F10/duhamel.vetterli.fft.review.pdf
 //   http://www.eurasip.org/Proceedings/Eusipco/2002/articles/paper086.pdf
 //   http://spiral.ece.cmu.edu:8080/pub-spiral/pubfile/recfft_15.pdf
+//   http://ipnpr.jpl.nasa.gov/progress_report2/42-32/32R.PDF
 //   http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.2.4190&rep=rep1&type=pdf
 //   http://www.proofwiki.org/wiki/ProofWiki:Books/H.J._Nussbaumer/Fast_Fourier_Transform_and_Convolution_Algorithms
 //   http://www.cse.yorku.ca/~aboelaze/publication/FFT06.pdf
@@ -396,6 +405,7 @@ namespace nt2
 //   http://infoscience.epfl.ch/record/33931/files/VetterliN84.pdf?version=1
 //   http://lcav.epfl.ch/people/martin.vetterli
 //   http://fmi.spiruharet.ro/bodorin/articles/brdfpvdro.pdf (bit reversal)
+//   http://www.es.isy.liu.se/publications/papers_and_reports/2002/Weidong_SSoCC02.pdf
 // - split/higher radix FFT
 //   http://en.wikipedia.org/wiki/Split-radix_FFT_algorithm
 //   http://cr.yp.to/bib/entries.html
@@ -419,6 +429,10 @@ namespace nt2
 //   http://65.54.113.26/Publication/1837187/an-efficient-split-radix-fft-algorithm
 //   http://www.libsou.com/pdf/01625937.pdf
 //   http://wn.com/Split_Radix_Fft_Algorithm
+// - generic "polymorphic" radix-n framework:
+//   http://osl.iu.edu/publications/prints/2002/zalewski_algorithms_2002.pdf
+//   http://www.springerlink.com/content/63nmtp2b6x426lrp
+//   http://books.google.hr/books?id=lqL4wL5aSkkC&pg=PA35&lpg=PA35&dq=class+radix_mapping&source=bl&ots=HDYK7Snudk&sig=-ZdI32QFWvrIHPPRiKpQ3Emvk_E&hl=hr&sa=X&ei=jqfET6iuJoLU-gbE0ImTCg&ved=0CEkQ6AEwAA#v=onepage&q=class%20radix_mapping&f=false
 // - real through complex
 //   http://www.engineeringproductivitytools.com/stuff/T0001/PT10.HTM
 //   http://www.fftguru.com/fftguru.com.tutorial2.pdf
@@ -647,7 +661,7 @@ namespace detail
         //__m128i const negate_upper_upper( _mm_insert_epi16( _mm_setzero_si128(), 1 << 15, 7 ) );
         //__m128  const negate_upper      ( _mm_castsi128_ps( _mm_unpackhi_epi32( negate_upper_upper, negate_upper_upper ) ) );
         //vector = _mm_xor_ps( vector, negate_upper );
-      flip_sign<false, false, true, true>( vector );
+        flip_sign<false, false, true, true>( vector );
     #else
         flip_sign<false, false, true, true>( vector );
     #endif // BOOST_SIMD_HAS_SSE2
@@ -1580,6 +1594,9 @@ namespace detail
     ///  - in-place scrambless algorithm
     ///  - use FMA, SSE3 complex math and AVX gather/scatter constructs
     ///    http://www.masm32.com/board/index.php?topic=15955.0
+    ///  - "3 muls + 3 adds" complex multiplication algorithm
+    ///    http://en.wikipedia.org/wiki/Multiplication_algorithm#Gauss.27s_complex_multiplication_algorithm
+    ///    http://www.es.isy.liu.se/publications/papers_and_reports/2002/Weidong_SSoCC02.pdf
     ///  - vectorized scrambling if possible (gather/scatter)
     ///  - merge separate, scramble and (de/re)interleave functions/passes
     ///  - in-place complete (de)interleave algorithm
@@ -1601,8 +1618,8 @@ namespace detail
     ///    http://listengine.tuxfamily.org/lists.tuxfamily.org/eigen/2012/04/msg00011.html)
     ///  - option to use a single set/array of twiddles (required for the
     ///    largest transform) for all transform sizes - this would require the
-    ///    additional twiddle stride parameter to be passed around so it would
-    ///    slow things down but it would reduce storage requirements
+    ///    additional twiddle stride parameter to be passed around so it
+    ///    (c/w)ould slow things down but it would reduce storage requirements
     ///  - hybrid dynamic-static implementation for large transforms (twiddles
     ///    would be statically allocated and calculated up to a certain size
     ///    above which dynamic allocation and calculation would be used)
@@ -1960,14 +1977,14 @@ namespace detail
         vector_t const i1( i1_ );
         vector_t const i2( i2_ );
 
-                            r0_ = r0 + r2;
-                            i0_ = i0 + i2;
+                         r0_ = r0 + r2;
+                         i0_ = i0 + i2;
         vector_t const t0m2_r( r0 - r2 );
         vector_t const t0m2_i( i0 - i2 );
 
         vector_t const i3( i3_ );
-                            r1_ = r1 + r3;
-                            i1_ = i1 + i3;
+                         r1_ = r1 + r3;
+                         i1_ = i1 + i3;
         vector_t const t1m3_r( r1 - r3 );
         vector_t const t1m3_i( i1 - i3 );
 
@@ -2285,11 +2302,11 @@ namespace detail
             scalar_t const r6_( r0m4 + r2m6 ); scalar_t const i6_( i0m4 + i2m6 );
             scalar_t const r7_( r1m5 + r3m7 ); scalar_t const i7_( i1m5 + i3m7 );
 
-            scalar_t const sqrt2( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
-          //scalar_t const w0r0(      1 ); scalar_t const w0i0(      0 );
-          //scalar_t const w3r0(      1 ); scalar_t const w3i0(      0 );
-          //scalar_t const w0r1( +sqrt2 ); scalar_t const w0i1( -sqrt2 );
-          //scalar_t const w3r1( -sqrt2 ); scalar_t const w3i1( -sqrt2 );
+            scalar_t const half_sqrt2( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
+          //scalar_t const w0r0(           1 ); scalar_t const w0i0(           0 );
+          //scalar_t const w3r0(           1 ); scalar_t const w3i0(           0 );
+          //scalar_t const w0r1( +half_sqrt2 ); scalar_t const w0i1( -half_sqrt2 );
+          //scalar_t const w3r1( -half_sqrt2 ); scalar_t const w3i1( -half_sqrt2 );
 
           //r4 = r4_ * w0r0 - i4_ * w0i0; i4 = r4_ * w0i0 + i4_ * w0r0;
           //r5 = r5_ * w0r1 - i5_ * w0i1; i5 = r5_ * w0i1 + i5_ * w0r1;
@@ -2297,10 +2314,10 @@ namespace detail
           //r6 = r6_ * w3r0 - i6_ * w3i0; i6 = r6_ * w3i0 + i6_ * w3r0;
           //r7 = r7_ * w3r1 - i7_ * w3i1; i7 = r7_ * w3i1 + i7_ * w3r1;
 
-            r4 = r4_                   ; i4 = i4_                   ;
-            r5 = ( r5_ + i5_ ) * +sqrt2; i5 = ( r5_ - i5_ ) * -sqrt2;
-            r6 = r6_                   ; i6 = i6_                   ;
-            r7 = ( r7_ - i7_ ) * -sqrt2; i7 = ( r7_ + i7_ ) * -sqrt2;
+            r4 =   r4_                      ; i4 =   i4_                      ;
+            r5 = ( r5_ + i5_ ) * +half_sqrt2; i5 = ( r5_ - i5_ ) * -half_sqrt2;
+            r6 =   r6_                      ; i6 =   i6_                      ;
+            r7 = ( r7_ - i7_ ) * -half_sqrt2; i7 = ( r7_ + i7_ ) * -half_sqrt2;
 
             // Decimation (lower DFT4 already calculated, the remaining two DFT2):
             {
@@ -2330,29 +2347,43 @@ namespace detail
         using boost::simd::repeat_upper_half;
         using boost::simd::details::shuffle;
 
-        vector_t upper_r; vector_t upper_i;
+        vector_t * BOOST_DISPATCH_RESTRICT const p_lower_real( &lower_real ); vector_t * BOOST_DISPATCH_RESTRICT const p_lower_imag( &lower_imag );
+        vector_t * BOOST_DISPATCH_RESTRICT const p_upper_real( &upper_real ); vector_t * BOOST_DISPATCH_RESTRICT const p_upper_imag( &upper_imag );
+
+        vector_t butterfly_result_r45i45;
+        vector_t butterfly_result_r67i67;
 
         // butterfly:
         {
-            vector_t const lower_r_in( lower_real );
-            vector_t const upper_r_in( upper_real );
-            vector_t const lower_i_in( lower_imag );
-            vector_t const upper_i_in( upper_imag );
+            /// \note Reshuffle the data into pairs, i.e. interleave every two
+            /// values instead of four. This makes no difference for the first
+            /// half of the split radix butterfly (which is radix-2) but reduces
+            /// the number of shuffles in the other/later/upper/right half of
+            /// the butterfly (which is radix-4 and thus splits the 8 point data
+            /// into quarters, i.e. pairs of values) and its subsequent 2 DFT2
+            /// calculations.
+            ///                               (07.11.2012.) (Domagoj Saric)
+            vector_t const r01i01_in( shuffle<0, 1, 0, 1>( *p_lower_real, *p_lower_imag ) );
+            vector_t const r23i23_in( shuffle<2, 3, 2, 3>( *p_lower_real, *p_lower_imag ) );
+            vector_t const r45i45_in( shuffle<0, 1, 0, 1>( *p_upper_real, *p_upper_imag ) );
+            vector_t const r67i67_in( shuffle<2, 3, 2, 3>( *p_upper_real, *p_upper_imag ) );
 
-            vector_t const lower_p_upper_r( lower_r_in + upper_r_in ); vector_t const lower_p_upper_i(  lower_i_in + upper_i_in );
-            vector_t       lower_m_upper_r( lower_r_in - upper_r_in ); vector_t       lower_m_upper_i(  lower_i_in - upper_i_in );
+            // l_p_u := lower + upper; l_m_u := lower - upper
+            vector_t const l_p_u_r01i01( r01i01_in + r45i45_in ); vector_t const l_p_u_r23i23( r23i23_in + r67i67_in );
+            vector_t const l_m_u_r01i01( r01i01_in - r45i45_in ); vector_t       l_m_u_r23i23( r23i23_in - r67i67_in );
 
-            // we can already calculate the lower DFT4 so we do it to free up
-            // registers:
+            // we can already calculate the lower DFT4 so we "pause the
+            // butterfly" and do it to free up registers (the "upper" part of
+            // the butterfly does not depend on the "lower" results):
             {
-                //...zzz...manually inlined for testing ("in search of optimal register allocation")...
-                //dif::dft_4<vector_t>
-                //(
-                //    lower_p_upper_r, lower_p_upper_i,
-                //    lower_real     , lower_imag
-                //);
-                vector_t const r01i01( shuffle<0, 1, 0, 1>( lower_p_upper_r, lower_p_upper_i ) );
-                vector_t const r23i23( shuffle<2, 3, 2, 3>( lower_p_upper_r, lower_p_upper_i ) );
+                // Manually inlined
+                //   dif::dft_4<vector_t>
+                //   (
+                //       lower_p_upper_r, lower_p_upper_i,
+                //       lower_real     , lower_imag
+                //   );
+                vector_t const r01i01( l_p_u_r01i01 );
+                vector_t const r23i23( l_p_u_r23i23 );
 
                 vector_t const ri_plus ( r01i01 + r23i23 );
                 vector_t const ri_minus( r01i01 - r23i23 );
@@ -2362,41 +2393,51 @@ namespace detail
                 negate_upper( r_right );                                                                                                                // <- by i
 
                 vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_middle( sign_flipper<vector_t, false, true, true , false>() );
-                lower_real = r_left + ( r_right ^ *p_negate_middle );
-                lower_imag = i_left + ( i_right ^ *p_negate_middle );
+                *p_lower_real = r_left + ( r_right ^ *p_negate_middle );
+                *p_lower_imag = i_left + ( i_right ^ *p_negate_middle );
             }
 
-            {
-                // multiplication by i:
-                vector_t const lower_m_upper_r_copy( lower_m_upper_r );
-                lower_m_upper_r = shuffle<0, 1, 2, 3>( lower_m_upper_r, lower_m_upper_i      );
-                lower_m_upper_i = shuffle<0, 1, 2, 3>( lower_m_upper_i, lower_m_upper_r_copy );
-                negate_upper( lower_m_upper_r );
-            }
+            // multiplication by i:
+            /// \note The ordering of the following statements influences the
+            /// code sequence generated by MSVC10 when it inlines this function
+            /// into the danielson_lanczos<8,...> specialization (the size 16
+            /// specialization seems unaffected). This ordering gives the best
+            /// timings on an i5.
+            ///                               (07.11.2012.) (Domagoj Saric)
+            negate_upper( l_m_u_r23i23 );
+            vector_t const r45i45(                      l_m_u_r01i01   );
+            vector_t const r67i67( shuffle<2, 3, 0, 1>( l_m_u_r23i23 ) );
 
-            vector_t const r_left ( repeat_lower_half( lower_m_upper_r ) ); vector_t const i_left ( repeat_lower_half( lower_m_upper_i ) );
-            vector_t       r_right( repeat_upper_half( lower_m_upper_r ) ); vector_t       i_right( repeat_upper_half( lower_m_upper_i ) );
-            negate_upper( r_right );
-            negate_upper( i_right );
-            upper_r = r_left - r_right;
-            upper_i = i_left - i_right;
+            butterfly_result_r45i45 = r45i45 - r67i67;
+            butterfly_result_r67i67 = r45i45 + r67i67;
+
+            /// \note We skip storing the properly ordered upper results of the
+            /// butterfly in order to save two shuffles (these are merged into
+            /// the subsequent shuffles required by the DFT2s below).
+            ///                               (07.11.2012.) (Domagoj Saric)
+            //upper_r = shuffle<0, 1, 0, 1>( butterfly_result_r45i45, butterfly_result_r67i67 );
+            //upper_i = shuffle<2, 3, 2, 3>( butterfly_result_r45i45, butterfly_result_r67i67 );
 
             // the twiddling of the 5th and 7th elements (see the scalar
-            // version) is merged into the upper DFT2 calculations below:
+            // version) is merged into the two upper DFT2 calculations below:
         }
 
         // merged two upper DFT2s:
         {
-            vector_t const r4466( shuffle<0, 0, 2, 2>( upper_r ) ); vector_t const i4466( shuffle<0, 0, 2, 2>( upper_i ) );
-            vector_t       r5577( shuffle<1, 1, 3, 3>( upper_r ) ); vector_t       i5577( shuffle<1, 1, 3, 3>( upper_i ) );
+            vector_t const r4466( shuffle<0, 0, 0, 0>( butterfly_result_r45i45, butterfly_result_r67i67 ) );
+            vector_t const i4466( shuffle<2, 2, 2, 2>( butterfly_result_r45i45, butterfly_result_r67i67 ) );
+            vector_t const r5577( shuffle<1, 1, 1, 1>( butterfly_result_r45i45, butterfly_result_r67i67 ) );
+            vector_t const i5577( shuffle<3, 3, 3, 3>( butterfly_result_r45i45, butterfly_result_r67i67 ) );
+
             vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_odd( sign_flipper<vector_t, false, true, false, true>() );
-            scalar_t const sqrt2      ( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
-            vector_t const twiddles   ( make<vector_t>( +sqrt2, -sqrt2, -sqrt2, -sqrt2 ) );
-            vector_t const twiddled_57( ( r5577 + ( i5577 ^ *p_negate_odd ) ) * twiddles );
-            r5577 = shuffle<0, 0, 3, 3>( twiddled_57 );
-            i5577 = shuffle<1, 1, 2, 2>( twiddled_57 );
-            upper_real = r4466 + ( r5577 ^ *p_negate_odd );
-            upper_imag = i4466 + ( i5577 ^ *p_negate_odd );
+            scalar_t const half_sqrt2    ( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
+            vector_t const twiddles      ( make<vector_t>( +half_sqrt2, -half_sqrt2, -half_sqrt2, -half_sqrt2 ) );
+            vector_t const twiddled_57   ( ( r5577 + ( i5577 ^ *p_negate_odd ) ) * twiddles );
+            vector_t const twiddled_r5577( shuffle<0, 0, 3, 3>( twiddled_57 ) );
+            vector_t const twiddled_i5577( shuffle<1, 1, 2, 2>( twiddled_57 ) );
+
+            *p_upper_real = r4466 + ( twiddled_r5577 ^ *p_negate_odd );
+            *p_upper_imag = i4466 + ( twiddled_i5577 ^ *p_negate_odd );
         }
 
     #endif // BOOST_SIMD_DETECTED
@@ -2427,9 +2468,9 @@ namespace detail
             lower_r, lower_i
         );
 
-        scalar_t const sqrt2( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
-        vector_t const wr( boost::simd::make<vector_t>( 1, +sqrt2, +0, -sqrt2 ) );
-        vector_t const wi( boost::simd::make<vector_t>( 0, -sqrt2, -1, -sqrt2 ) );
+        scalar_t const half_sqrt2( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
+        vector_t const wr( boost::simd::make<vector_t>( 1, +half_sqrt2, +0, -half_sqrt2 ) );
+        vector_t const wi( boost::simd::make<vector_t>( 0, -half_sqrt2, -1, -half_sqrt2 ) );
 
         vector_t const temp_r( ( wr * upper_r ) - ( wi * upper_i ) );
         vector_t const temp_i( ( wi * upper_r ) + ( wr * upper_i ) );
@@ -2532,7 +2573,10 @@ namespace detail
             split_radix_twiddles<vector_t> const * BOOST_DISPATCH_RESTRICT const p_w( Context:: template twiddle_factors<N>() );
             boost::simd::prefetch_temporary( p_w );
         #ifdef _MSC_VER
-            _ReadWriteBarrier();
+            /// \note MSVC reorders the prefetch (much) further down and
+            /// benchmarking shows this to be a smart decision.
+            ///                               (06.11.2012.) (Domagoj Saric)
+            //_ReadWriteBarrier();
         #endif // _MSC_VER
 
 
