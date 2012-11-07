@@ -302,17 +302,17 @@ namespace details
         extra_pointer_register & operator++() { return this->operator += ( 1 ); }
         extra_pointer_register & operator--() { return this->operator -= ( 1 ); }
 
-        T * operator++( int )
+        T * BOOST_DISPATCH_RESTRICT operator++( int )
         {
             T * BOOST_DISPATCH_RESTRICT const result( this->operator->() );
             this->operator++();
             return result;
         }
 
-        T & operator *  () const { return *static_cast<T * BOOST_DISPATCH_RESTRICT>( *this ); }
-        T * operator -> () const { return  static_cast<T * BOOST_DISPATCH_RESTRICT>( *this ); }
+        T &                         operator *  () const { return *static_cast<T * BOOST_DISPATCH_RESTRICT>( *this ); }
+        T * BOOST_DISPATCH_RESTRICT operator -> () const { return  static_cast<T * BOOST_DISPATCH_RESTRICT>( *this ); }
 
-        operator T * () const { return reinterpret_cast<T * BOOST_DISPATCH_RESTRICT>( static_cast<unsigned int>( *this ) ); }
+        operator T * BOOST_DISPATCH_RESTRICT () const { return reinterpret_cast<T * BOOST_DISPATCH_RESTRICT>( static_cast<unsigned int>( *this ) ); }
     };
 
     template <typename T> struct make_extra_pointer_register { typedef extra_pointer_register<T> type; };
@@ -610,10 +610,10 @@ namespace detail
 
     template <typename T, T e0, T e1, T e2, T e3>
     BOOST_FORCEINLINE
-    T const (*sign_flipper_aux())[ 4 ]
+    T const (* BOOST_DISPATCH_RESTRICT sign_flipper_aux())[ 4 ]
     {
         unsigned int const mzero_shift( sizeof( T ) * 8 - 1 );
-        static unsigned int const cardinal = 4;
+        unsigned int const cardinal   ( 4                   );
 
         static T const BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT )
             flipper[ cardinal ] = { e0 << mzero_shift, e1 << mzero_shift, e2 << mzero_shift, e3 << mzero_shift };
@@ -622,7 +622,7 @@ namespace detail
 
     template <typename Vector, bool e0, bool e1, bool e2, bool e3>
     BOOST_FORCEINLINE
-    Vector const * sign_flipper()
+    Vector const * BOOST_DISPATCH_RESTRICT sign_flipper()
     {
         /// \note MSVC10 sometimes generates wrong constants (especially when
         /// the reversed set function (_mm_setr_ps) is used.
@@ -843,11 +843,9 @@ namespace detail
 
         typedef vector_t * BOOST_DISPATCH_RESTRICT parameter0_t;
         typedef vector_t * BOOST_DISPATCH_RESTRICT parameter1_t;
-        typedef vector_t * return0_t;
-        typedef vector_t * return1_t;
 
         typedef dif decimation_t;
-        //typedef dit decimation_t; //...zzz...not yet fully ported to the split-radix algorithm...
+      //typedef dit decimation_t; //...zzz...not yet fully ported to the split-radix algorithm...
 
         template <unsigned RealP>
         struct complex_P : boost::mpl::integral_c<unsigned int, RealP - 1> {};
@@ -913,20 +911,31 @@ namespace detail
         }
 
         template <unsigned N>
-        static twiddles const * twiddle_factors() { return twiddles_interleaved<N, vector_t>::factors(); }
+        static twiddles const * BOOST_DISPATCH_RESTRICT twiddle_factors() { return twiddles_interleaved<N, vector_t>::factors(); }
 
         unsigned int remaining_iterations() const { return counter_; }
 
     public: // (split radix) decimation interface
         //...zzz...instead of lower/upper, left/right or even/odd names could be used...
-        return0_t lower_parameter0       () const { return r_prefetched_element<0>(); };
-        return1_t lower_parameter1       () const { return i_prefetched_element<0>(); };
+        /// \note MSVC10 is doesn't grasp that
+        /// _mm_cvtsi64_si32( _mm_cvtsi32_si64( value ) ) == value (i.e. that it
+        /// is a nop) so it stack-dances the __m64 "extra registers" in the
+        /// danielson_lanczos decimation instantiations. As a quick-workaround
+        /// the following functions take the p_reals, p_imags and N parameters
+        /// again even though those were already passed to the context
+        /// constructor so that the context version with "extra" registers can
+        /// (re)create those values w/o jumping through MMX registers. This
+        /// could be fixed cleaner by creating separate "context" classes/
+        /// versions for the buttefly loop and for the decimation stages.
+        ///                                   (07.11.2012.) (Domagoj Saric)
+        parameter0_t lower_parameter0       ( parameter0_t const p_reals, parameter1_t const p_imags, unsigned int const N ) const { return r_prefetched_element<0>( p_reals, p_imags, N ); };
+        parameter1_t lower_parameter1       ( parameter0_t const p_reals, parameter1_t const p_imags, unsigned int const N ) const { return i_prefetched_element<0>( p_reals, p_imags, N ); };
 
-        return0_t upper_first_parameter0 () const { return r_prefetched_element<2>(); };
-        return1_t upper_first_parameter1 () const { return i_prefetched_element<2>(); };
+        parameter0_t upper_first_parameter0 ( parameter0_t const p_reals, parameter1_t const p_imags, unsigned int const N ) const { return r_prefetched_element<2>( p_reals, p_imags, N ); };
+        parameter1_t upper_first_parameter1 ( parameter0_t const p_reals, parameter1_t const p_imags, unsigned int const N ) const { return i_prefetched_element<2>( p_reals, p_imags, N ); };
 
-        return0_t upper_second_parameter0() const { return r_prefetched_element<3>(); };
-        return1_t upper_second_parameter1() const { return i_prefetched_element<3>(); };
+        parameter0_t upper_second_parameter0( parameter0_t const p_reals, parameter1_t const p_imags, unsigned int const N ) const { return r_prefetched_element<3>( p_reals, p_imags, N ); };
+        parameter1_t upper_second_parameter1( parameter0_t const p_reals, parameter1_t const p_imags, unsigned int const N ) const { return i_prefetched_element<3>( p_reals, p_imags, N ); };
 
     public: // data setup interface
         template <unsigned int valid_bits>
@@ -997,10 +1006,10 @@ namespace detail
             return p_element;
         }
 
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT r_element           () const { return element           ( p_reals_, part ); }
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT i_element           () const { return element           ( p_imags_, part ); }
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT r_prefetched_element() const { return prefetched_element( p_reals_, part ); }
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT i_prefetched_element() const { return prefetched_element( p_imags_, part ); }
+        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT r_element           (                                                                        ) const { return element           ( p_reals_, part ); }
+        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT i_element           (                                                                        ) const { return element           ( p_imags_, part ); }
+        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT r_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_reals_, part ); }
+        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT i_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_imags_, part ); }
 
     private:
         char * BOOST_DISPATCH_RESTRICT p_reals_;
@@ -1044,29 +1053,32 @@ namespace detail
         template <unsigned int PointerIndex> extra_vector_ptr_t                           & pointer_aux( extra_vector_ptr_t                           const * ) { BOOST_STATIC_ASSERT( ( PointerIndex - gp_registers_to_use ) < ( sizeof( extra_pointers_ ) / sizeof( *extra_pointers_ ) ) ); return extra_pointers_[ PointerIndex - gp_registers_to_use ]; }
     #endif // BOOST_SIMD_HAS_EXTRA_GP_REGISTERS
 
-        template <unsigned int PointerIndex>
-        typename pointer_type<PointerIndex>::type & pointer()
-        {
-            return pointer_aux<PointerIndex>( static_cast<typename pointer_type<PointerIndex>::type *>( 0 ) );
-        }
+        template <unsigned int PointerIndex> typename pointer_type<PointerIndex>::type       & pointer()       { return pointer_aux<PointerIndex>( static_cast<typename pointer_type<PointerIndex>::type *>( 0 ) ); }
+        template <unsigned int PointerIndex> typename pointer_type<PointerIndex>::type const & pointer() const { return const_cast<inplace_separated_context_t &>( *this ).pointer<PointerIndex>(); }
 
-        template <unsigned int PointerIndex>
-        typename pointer_type<PointerIndex>::type const & pointer() const { return const_cast<inplace_separated_context_t &>( *this ).pointer<PointerIndex>(); }
-
-        template <unsigned int PointerIndex>
-        typename pointer_type<PointerIndex>::type const & prefetched_element() const
+        //template <unsigned int PointerIndex>
+        //typename pointer_type<PointerIndex>::type const & prefetched_element() const
+        //{
+        //    typename pointer_type<PointerIndex>::type const & p_element( pointer<PointerIndex>() );
+        //    BOOST_ASSUME( p_element != 0 );
+        //    boost::simd::memory::prefetch_temporary( p_element );
+        //    return p_element;
+        //}
+        template <unsigned int Part>
+        vector_t * BOOST_DISPATCH_RESTRICT prefetched_element( parameter0_t const p_base, unsigned int const N ) const
         {
-            typename pointer_type<PointerIndex>::type const & p_element( pointer<PointerIndex>() );
+            vector_t * BOOST_DISPATCH_RESTRICT const p_element( &p_base[ N / 4 / vector_t::static_size * Part ] );
             BOOST_ASSUME( p_element != 0 );
             boost::simd::prefetch_temporary( p_element );
             return p_element;
         }
 
-
         template <unsigned int part> typename pointer_type<0 * 4 + part>::type const & r_element           () const { return pointer           <0 * 4 + part>(); }
         template <unsigned int part> typename pointer_type<1 * 4 + part>::type const & i_element           () const { return pointer           <1 * 4 + part>(); }
-        template <unsigned int part> typename pointer_type<0 * 4 + part>::type const & r_prefetched_element() const { return prefetched_element<0 * 4 + part>(); }
-        template <unsigned int part> typename pointer_type<1 * 4 + part>::type const & i_prefetched_element() const { return prefetched_element<1 * 4 + part>(); }
+      //template <unsigned int part> typename pointer_type<0 * 4 + part>::type const & r_prefetched_element() const { return prefetched_element<0 * 4 + part>(); }
+      //template <unsigned int part> typename pointer_type<1 * 4 + part>::type const & i_prefetched_element() const { return prefetched_element<1 * 4 + part>(); }
+        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT r_prefetched_element( parameter0_t const   p_reals  , parameter1_t const /*p_imags*/, unsigned int const N ) const { return prefetched_element<part>( p_reals, N ); }
+        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT i_prefetched_element( parameter0_t const /*p_reals*/, parameter1_t const   p_imags  , unsigned int const N ) const { return prefetched_element<part>( p_imags, N ); }
 
     private:
         boost::simd::details::extra_integer_register counter_;
@@ -1671,9 +1683,9 @@ namespace detail
 
         while ( p_lower_reals->data() < p_upper_reals )
         {
-            using boost::simd::reverse        ;
-            using boost::simd::load ;
-            using boost::simd::store;
+            using boost::simd::reverse;
+            using boost::simd::load   ;
+            using boost::simd::store  ;
 
         /* "straight" implementation:
             // the following two constants go outside the loop:
@@ -1704,8 +1716,8 @@ namespace detail
 
             vector_t const upper_r( reverse( load<vector_t>( p_upper_reals ) ) );
             vector_t const upper_i( reverse( load<vector_t>( p_upper_imags ) ) );
-            vector_t const lower_r(                                   *p_lower_reals     );
-            vector_t const lower_i(                                   *p_lower_imags     );
+            vector_t const lower_r(                         *p_lower_reals     );
+            vector_t const lower_i(                         *p_lower_imags     );
 
             vector_t const wr( p_twiddles->w0.wr ^ twiddle_sign_flipper );
             vector_t const wi( p_twiddles->w0.wi                        );
@@ -1804,18 +1816,18 @@ namespace detail
 
         while ( p_lower_reals < p_upper_reals->data() )
         {
-            using boost::simd::reverse        ;
-            using boost::simd::load ;
-            using boost::simd::store;
+            using boost::simd::reverse;
+            using boost::simd::load   ;
+            using boost::simd::store  ;
 
-            vector_t const upper_r( reverse                 ( *p_upper_reals ) );
-            vector_t const upper_i( reverse                 ( *p_upper_imags ) );
+            vector_t const upper_r( reverse       ( *p_upper_reals ) );
+            vector_t const upper_i( reverse       ( *p_upper_imags ) );
             vector_t const lower_r( load<vector_t>(  p_lower_reals ) );
             vector_t const lower_i( load<vector_t>(  p_lower_imags ) );
 
             vector_t const wr( p_twiddles->wr ^ twiddle_sign_flipper );
             vector_t const wi( p_twiddles->wi                        );
-            boost::simd::prefetch_temporary( ++p_twiddles );
+            boost::simd::memory::prefetch_temporary( ++p_twiddles );
 
             vector_t const h1r( lower_r + upper_r );
             vector_t const h1i( lower_i - upper_i );
@@ -1882,8 +1894,6 @@ namespace detail
         unsigned int                                                   const N
     )
     {
-        boost::simd::prefetch_temporary( p_w_param );
-
     #ifdef NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
         typename Context::twiddles const * BOOST_DISPATCH_RESTRICT                                         p_w( p_w_param );
     #else
@@ -1894,6 +1904,7 @@ namespace detail
 
         do
         {
+            boost::simd::prefetch_temporary( p_w );
             Decimation:: template butterfly<typename Context::vector_t>
             (
                 context. template r<0>(), context. template i<0>(),
@@ -1902,7 +1913,6 @@ namespace detail
                 context. template r<3>(), context. template i<3>(),
                 *p_w++
             );
-            boost::simd::prefetch_temporary( p_w );
             ++context;
         } while ( context.remaining_iterations() );
     }
@@ -2406,7 +2416,7 @@ namespace detail
             ///                               (07.11.2012.) (Domagoj Saric)
             negate_upper( l_m_u_r23i23 );
             vector_t const r45i45(                      l_m_u_r01i01   );
-            vector_t const r67i67( shuffle<2, 3, 0, 1>( l_m_u_r23i23 ) );
+            vector_t const r67i67( shuffle<2, 3, 0, 1>( l_m_u_r23i23 ) ); // swap vector halves
 
             butterfly_result_r45i45 = r45i45 - r67i67;
             butterfly_result_r67i67 = r45i45 + r67i67;
@@ -2527,8 +2537,8 @@ namespace detail
 
 
     ////////////////////////////////////////////////////////////////////////////
-    /// danielson_lanczos specializations that unroll the butterfly loop body
-    ///  (for size 8 there is only one pass and for size 16 there are two).
+    /// danielson_lanczos specializations that unroll the butterfly loop body,
+    /// inline subtransforms, have special-case optimizations, etc...
     ////////////////////////////////////////////////////////////////////////////
 
     template <class Decimation, class Context, typename T>
@@ -2594,20 +2604,19 @@ namespace detail
             vector_t const t0p2_r( *p_r0 + *p_r2 );
             vector_t const t0m2_r( *p_r0 - *p_r2 );
             *p_r0 = t0p2_r;
-            vector_t const t0p2_i( *p_i0 + *p_i2 );
-            vector_t const t0m2_i( *p_i0 - *p_i2 );
-            *p_i0 = t0p2_i;
-
             vector_t const t1p3_r( *p_r1 + *p_r3 );
             vector_t const t1m3_r( *p_r1 - *p_r3 );
             *p_r1 = t1p3_r;
+            vector_t const t0p2_i( *p_i0 + *p_i2 );
+            vector_t const t0m2_i( *p_i0 - *p_i2 );
+            *p_i0 = t0p2_i;
             vector_t const t1p3_i( *p_i1 + *p_i3 );
             vector_t const t1m3_i( *p_i1 - *p_i3 );
             *p_i1 = t1p3_i;
 
             vector_t const tpj_r( t0m2_r + t1m3_i );
-            vector_t const tpj_i( t0m2_i - t1m3_r );
             vector_t const tmj_r( t0m2_r - t1m3_i );
+            vector_t const tpj_i( t0m2_i - t1m3_r );
             vector_t const tmj_i( t0m2_i + t1m3_r );
 
             Decimation::dft_8_in_place
@@ -2701,6 +2710,68 @@ namespace detail
                 p_imags,
                 Context:: template twiddle_factors<N>(),
                 N
+            );
+        }
+    };
+
+
+    template <class Decimation, class Context, typename T>
+    struct danielson_lanczos<32, Decimation, Context, T, 4>
+    {
+    public:
+        static unsigned const N          = 32;
+        static unsigned const count_of_T =  4;
+
+        typedef typename Context::parameter0_t parameter0_t;
+        typedef typename Context::parameter1_t parameter1_t;
+
+        BOOST_NOTHROW_NOALIAS
+        static void BOOST_FASTCALL apply( parameter0_t const param0, parameter1_t const param1 )
+        {
+            apply( param0, param1, typename Decimation::first_step () );
+            apply( param0, param1, typename Decimation::second_step() );
+        }
+
+    private:
+        BOOST_NOTHROW_NOALIAS BOOST_FORCEINLINE
+        static void BOOST_FASTCALL apply( parameter0_t const param0, parameter1_t const param1, step_decimation const & )
+        { // same as unspecialized version...
+            Context const context( param0, param1, N );
+            typedef danielson_lanczos<N/2, Decimation, Context, T, count_of_T> lower;
+            typedef danielson_lanczos<N/4, Decimation, Context, T, count_of_T> upper;
+            lower::apply( context.lower_parameter0       ( param0, param1, N ), context.lower_parameter1       ( param0, param1, N ) );
+            upper::apply( context.upper_first_parameter0 ( param0, param1, N ), context.upper_first_parameter1 ( param0, param1, N ) );
+            upper::apply( context.upper_second_parameter0( param0, param1, N ), context.upper_second_parameter1( param0, param1, N ) );
+        }
+
+        BOOST_NOTHROW_NOALIAS BOOST_FORCEINLINE
+        static void BOOST_FASTCALL apply( typename Context::parameter0_t const param0, typename Context::parameter1_t const param1, step_butterfly const & )
+        { // unrolled butterfly loop
+            Context context( param0, param1, N );
+
+            typename Context::twiddles const * BOOST_DISPATCH_RESTRICT p_w( Context:: template twiddle_factors<N>() );
+
+            boost::simd::memory::prefetch_temporary( p_w );
+            Decimation:: template butterfly<typename Context::vector_t>
+            (
+                context. template r<0>(), context. template i<0>(),
+                context. template r<1>(), context. template i<1>(),
+                context. template r<2>(), context. template i<2>(),
+                context. template r<3>(), context. template i<3>(),
+                *p_w
+            );
+
+            ++context;
+            ++p_w    ;
+
+            boost::simd::memory::prefetch_temporary( p_w );
+            Decimation:: template butterfly<typename Context::vector_t>
+            (
+                context. template r<0>(), context. template i<0>(),
+                context. template r<1>(), context. template i<1>(),
+                context. template r<2>(), context. template i<2>(),
+                context. template r<3>(), context. template i<3>(),
+                *p_w
             );
         }
     };
