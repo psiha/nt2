@@ -289,7 +289,7 @@ namespace detail
         unsigned int                                   const start_index
     )
     {
-    #if defined( _MSC_VER ) && ( defined( _M_IX86 ) || defined( _M_AMD64 ) || defined( _M_IA64 ) )
+    #if defined( _MSC_VER ) && ( defined( _M_IX86 ) /*...mrmlj...assertion failure in the CRT?...|| defined( _M_AMD64 )*/ || defined( _M_IA64 ) )
         unsigned int const current_precision( ::_controlfp( _PC_64, _MCW_PC ) );
     #endif // _MSC_VER
 
@@ -331,7 +331,7 @@ namespace detail
 
         BOOST_ASSERT( p_w == &p_twiddles[ N_int / 4 / Vector::static_size * stride ] );
 
-    #if defined( _MSC_VER ) && ( defined( _M_IX86 ) || defined( _M_AMD64 ) || defined( _M_IA64 ) )
+    #if defined( _MSC_VER ) && ( defined( _M_IX86 ) /*...mrmlj...assertion failure in the CRT?...|| defined( _M_AMD64 )*/ || defined( _M_IA64 ) )
         ::_controlfp( current_precision, _MCW_PC );
     #endif // _MSC_VER
     }
