@@ -57,37 +57,43 @@
         #else
             #define BOOST_FASTCALL __attribute__(( regparm( 3 ), hot ))
         #endif // __clang__
-    #else
-        #define BOOST_FASTCALL
     #endif // BOOST_SIMD_ARCH_X86
 
     // http://en.chys.info/2010/07/counterpart-of-assume-in-gcc
     // http://nondot.org/sabre/LLVMNotes/BuiltinUnreachable.txt
     #if ( __clang_major__ >= 2 ) || ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) >= 45 )
         #define BOOST_UNREACHABLE_CODE()  BOOST_ASSERT_MSG( false    , "This code should not be reached." ); __builtin_unreachable()
-        #if !defined( __clang__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 45 ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) < 48 )
+        #if defined( __clang__ ) || ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) < 46 ) || ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 47 )
             // Broken/pessimization in GCC 4.6:
             //  https://bugs.launchpad.net/gcc-linaro/+bug/1020601
             //  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=50385
             //  http://gcc.gnu.org/ml/gcc-patches/2012-07/msg00254.html
             //  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=49054
-            #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken." );
-        #else
             #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken." ); do { if ( !( condition ) ) __builtin_unreachable(); } while ( 0 )
         #endif
-    #else
-        #define BOOST_UNREACHABLE_CODE()  BOOST_ASSERT_MSG( false    , "This code should not be reached." )
-        #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken."               )
     #endif
 
-#else
-
-    #define BOOST_NOTHROW_NOALIAS
-    #define BOOST_FASTCALL
-    #define BOOST_UNREACHABLE_CODE()  BOOST_ASSERT_MSG( false    , "This code should not be reached." )
-    #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken."               )
-
 #endif
+
+#ifndef BOOST_NOTHROW_NOALIAS
+    #define BOOST_NOTHROW_NOALIAS
+#endif // BOOST_NOTHROW_NOALIAS
+
+#ifndef BOOST_FASTCALL
+    #define BOOST_FASTCALL
+#endif // BOOST_FASTCALL
+
+#ifndef BOOST_UNREACHABLE_CODE
+    #define BOOST_UNREACHABLE_CODE() BOOST_ASSERT_MSG( false, "This code should not be reached." )
+#endif // BOOST_UNREACHABLE_CODE
+
+/// \note We want assume to have verify semantics (i.e. the condition expression
+/// should be evaluated in all builds.
+///                                           (13.11.2012.) (Domagoj Saric)
+#ifndef BOOST_ASSUME
+    #define BOOST_ASSUME( condition ) BOOST_VERIFY( condition && "Assumption broken." )
+#endif // BOOST_ASSUME
+
 //------------------------------------------------------------------------------
 #include <nt2/signal/twiddle_factors.hpp>
 
@@ -375,16 +381,17 @@ namespace nt2
 /// even with plain C++ (scalar mode) and radix-2 algorithm, I wasn't able to
 /// get even near that performance even with SSE. Even the article author's own
 /// http://gfft.sourceforge.net library did not give me the stated level of
-/// performance. The current split-radix SSE2 real version of this code is now
-/// slightly faster or about as fast as the real FFT in ACML 3.6 for small
-/// transforms (128-512) and about 5-10% slower for larger ones (up to 8192).
+/// performance.
 ///   Todd Veldhuizen's implementation turned out even worse because it is too
 /// much compile-time based so it instantiates an enormous amount of inlined
 /// code which simply thrashes the instruction cache (the author admits this
 /// problem for all except very small FFTs).
 ///   For these reasons the current approach is a mix of several approaches and
-/// ideas tweaked through the typical trial and error procedure.
-///                                           (15.02.2012.) (Domagoj Saric)
+/// ideas tweaked through the typical trial and error procedure. It is almost a
+/// complete rewrite, with only some basic ideas surviving, based on the
+/// split-radix algorithm. The SSE2 real and complex versions are able to
+/// surpass ACML and vDSP for the smallest transform sizes.
+///                                           (13.11.2012.) (Domagoj Saric)
 
 namespace detail
 {
@@ -1913,7 +1920,7 @@ namespace detail
     unsigned int const idx2( 2 );
     unsigned int const idx3( 3 );
 
-    #if !defined( BOOST_SIMD_DETECTED ) && !( defined( __GNUC__ ) && defined( __ARM_NEON__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 ) )
+    #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
         typedef typename Vector::value_type scalar_t;
 
         scalar_t const r2( real_in[ idx2 ] );
@@ -1998,13 +2005,15 @@ namespace detail
         Vector       & real_out, Vector       & imag_out
     )
     {
+        typedef typename Vector::value_type scalar_t;
+
         //...zzz...no separate bit reversing/scrambling pass experimenting...
         unsigned int const idx0( 0 );
         unsigned int const idx1( 1 );
         unsigned int const idx2( 2 );
         unsigned int const idx3( 3 );
 
-    #if !defined( BOOST_SIMD_DETECTED ) && !( defined( __GNUC__ ) && defined( __ARM_NEON__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 ) )
+    #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
         typedef typename Vector::value_type scalar_t;
 
         scalar_t r0( real_in[ idx0 ] ); scalar_t i0( imag_in[ idx0 ] );
@@ -2073,7 +2082,7 @@ namespace detail
         typedef          Vector             vector_t;
         typedef typename Vector::value_type scalar_t;
 
-    #if !defined( BOOST_SIMD_DETECTED ) && !( defined( __GNUC__ ) && defined( __ARM_NEON__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 ) )
+    #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
         scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_real( lower_real.data() );
         scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_imag( lower_imag.data() );
         scalar_t * BOOST_DISPATCH_RESTRICT const p_upper_real( upper_real.data() );
@@ -2409,9 +2418,8 @@ namespace detail
             vector_t * BOOST_DISPATCH_RESTRICT const p_r2( &p_reals[ 2 ] ); vector_t * BOOST_DISPATCH_RESTRICT const p_i2( &p_imags[ 2 ] );
             vector_t * BOOST_DISPATCH_RESTRICT const p_r3( &p_reals[ 3 ] ); vector_t * BOOST_DISPATCH_RESTRICT const p_i3( &p_imags[ 3 ] );
 
-        #if defined( BOOST_SIMD_DETECTED ) || ( defined( __GNUC__ ) && defined( __ARM_NEON__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 46 ) )
+        #if defined( BOOST_SIMD_DETECTED ) || defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
             //...zzz...manually inlined for testing ("in search of optimal register allocation")...
-
             vector_t const t0p2_r( *p_r0 + *p_r2 );
             vector_t const t0m2_r( *p_r0 - *p_r2 );
             *p_r0 = t0p2_r;
