@@ -13,6 +13,7 @@
 #include <boost/simd/toolbox/operator/functions/bitwise_and.hpp>
 #include <boost/simd/toolbox/operator/functions/bitwise_or.hpp>
 #include <boost/simd/toolbox/operator/functions/bitwise_xor.hpp>
+#include <boost/simd/toolbox/operator/functions/extract.hpp>
 #include <boost/simd/toolbox/operator/functions/complement.hpp>
 #include <boost/simd/toolbox/operator/functions/divides.hpp>
 #include <boost/simd/toolbox/operator/functions/make.hpp>
@@ -26,6 +27,8 @@
 #include <boost/simd/toolbox/operator/functions/unary_minus.hpp>
 #include <boost/simd/toolbox/swar/functions/details/shuffle.hpp>
 #include <boost/simd/toolbox/swar/functions/reverse.hpp>
+
+ #include <boost/type_traits/is_const.hpp>
 //------------------------------------------------------------------------------
 namespace boost
 {
@@ -144,6 +147,80 @@ namespace ext
     result_type operator()(A0 const a0, A1 const&) const
     {
       return (typename result_type::native_type)vmovq_n_s32( a0 );
+    }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION
+  (
+    boost::simd::tag::extract_,
+    boost::simd::tag::cpu_,
+    (A0)(A1),
+    ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >)
+  )
+  {
+    float operator()( A0 const & a0, A1 const & a1 ) const
+    {
+        return vgetq_lane_f32( (float32x4_t)a0(), a1 );
+    }
+
+    //...mrmlj...some code wants non-const references...
+    template<class Sig>
+    struct result;
+
+    template<class This, class A0_, class A1_>
+    struct result<This(A0_, A1_)>
+    {
+        typedef typename meta::scalar_of<typename remove_reference<A0_>::type>::type stype;
+        typedef typename mpl::if_<is_const<stype>, stype, typename meta::may_alias<stype>::type &>::type type;
+    };
+
+    template<class A0_>
+    BOOST_FORCEINLINE typename result<implement(A0_&, A1 const&)>::type
+    operator()(A0_& a0, A1 const& a1) const
+    {
+        typedef typename meta::scalar_of<A0_>::type stype;
+        return reinterpret_cast<typename meta::may_alias<stype>::type*>(&a0)[a1];
+    }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION
+  (
+    boost::simd::tag::insert_,
+    tag::cpu_,
+    (A0)(A1)(A2),
+    (scalar_< arithmetic_<A0> >)((simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
+  {
+    typedef A1 & result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 & a1, A2 const & a2 ) const
+    {
+      a1 = (typename A1::native_type)vsetq_lane_f32( a0, (float32x4_t)a1(), a2 );
+      return a1;
+    }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION
+  (
+    boost::simd::tag::insert_,
+    tag::cpu_,
+    (A0)(A1)(A2),
+    (scalar_< arithmetic_<A0> >)((simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
+  {
+    typedef A1 & result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 & a1, A2 const & a2 ) const
+    {
+      a1 = (typename A1::native_type)vsetq_lane_u32( a0, (uint32x4_t)a1(), a2 );
+      return a1;
+    }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION
+  (
+    boost::simd::tag::insert_,
+    tag::cpu_,
+    (A0)(A1)(A2),
+    (scalar_< arithmetic_<A0> >)((simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
+  {
+    typedef A1 & result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 & a1, A2 const & a2 ) const
+    {
+      a1 = (typename A1::native_type)vsetq_lane_s32( a0, (int32x4_t)a1(), a2 );
+      return a1;
     }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::is_less_, boost::simd::tag::cpu_, (A0), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
