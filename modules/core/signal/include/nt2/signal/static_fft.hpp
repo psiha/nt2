@@ -595,11 +595,8 @@ namespace detail
     };
 
     template <typename Scalar>
-    //...zzz...boost::simd::native<Scalar, BOOST_SIMD_DEFAULT_EXTENSION> *
-    typename types<Scalar>::vector_t *
-    as_vector( Scalar * const p_data )
+    typename types<Scalar>::vector_t * as_vector( Scalar * const p_data )
     {
-        //..zzz..typedef boost::simd::native<Scalar, BOOST_SIMD_DEFAULT_EXTENSION> vector_t;
         typedef typename types<Scalar>::vector_t vector_t;
         BOOST_ASSERT_MSG( reinterpret_cast<std::size_t>( p_data ) % sizeof( vector_t ) == 0, "Data misaligned." );
         return reinterpret_cast<vector_t *>( p_data );
