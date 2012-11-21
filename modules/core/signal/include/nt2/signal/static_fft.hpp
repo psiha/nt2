@@ -586,9 +586,9 @@ namespace detail
     template <typename T>
     struct types
     {
-        typedef T                                                           scalar_t;
-        typedef typename boost::simd::meta::vector_of<scalar_t, 4>::type    vector_t;
-        typedef typename vector_t::native_type                              native_t;
+        typedef T                                                        scalar_t;
+        typedef typename boost::simd::meta::vector_of<scalar_t, 4>::type vector_t;
+        typedef typename vector_t::native_type                           native_t;
 
         typedef split_radix_twiddles<vector_t> twiddles             ;
         typedef twiddle_pair        <vector_t> real2complex_twiddles;
@@ -727,7 +727,7 @@ namespace detail
 
     public: // (split radix) decimation interface
         //...zzz...instead of lower/upper, left/right or even/odd names could be used...
-        /// \note MSVC10 is doesn't grasp that
+        /// \note MSVC10 doesn't grasp that
         /// _mm_cvtsi64_si32( _mm_cvtsi32_si64( value ) ) == value (i.e. that it
         /// is a nop) so it stack-dances the __m64 "extra registers" in the
         /// danielson_lanczos decimation instantiations. As a quick-workaround
@@ -1544,12 +1544,12 @@ namespace detail
 
             vector_t const wr( p_twiddles->w0.wr ^ twiddle_sign_flipper );
             vector_t const wi( p_twiddles->w0.wi                        );
-            p_twiddles++;
+            ++p_twiddles;
 
             vector_t const h1r( lower_r + upper_r );
-            vector_t const h1i( lower_i - upper_i );
-            vector_t const h2r( lower_i + upper_i );
             vector_t const h2i( upper_r - lower_r );
+            vector_t const h2r( lower_i + upper_i );
+            vector_t const h1i( lower_i - upper_i );
 
             vector_t const h_temp_r( ( wr * h2r ) - ( wi * h2i ) );
             vector_t const h_temp_i( ( wr * h2i ) + ( wi * h2r ) );
@@ -1571,6 +1571,11 @@ namespace detail
 
         BOOST_ASSERT( p_twiddles == &p_twiddle_factors[ N / 4 / vector_t::static_size ] );
 
+        /// \note MSVC10 uses double precision for intermediate results in the
+        /// below scalar computations unless /fp:fast is specified even with
+        /// all the explicit scalar_t casts and type specifications.
+        ///                                   (20.11.2012.) (Domagoj Saric)
+
         /// \note Separately calculate the middle ("half Nyquist") element
         /// skipped by the above loop.
         ///                                   (29.02.2012.) (Domagoj Saric)
@@ -1582,8 +1587,8 @@ namespace detail
             BOOST_ASSERT( *p_half_nyquist_re == half_nyquist_re_check );
             BOOST_ASSERT( *p_half_nyquist_im == half_nyquist_im_check );
 
-            *p_half_nyquist_re *= +2;
-            *p_half_nyquist_im *= -2;
+            *p_half_nyquist_re *= static_cast<scalar_t>( +2 );
+            *p_half_nyquist_im *= static_cast<scalar_t>( -2 );
         }
 
         /// \note Calculate the two purely real components (the first and last,
@@ -1594,7 +1599,7 @@ namespace detail
         scalar_t & nyquist_re( p_reals->data()[ N / 2 ] );
         scalar_t & nyquist_im( p_imags->data()[ N / 2 ] );
         //...zzz...ugh...reinvestigate this...
-        scalar_t const multiplier( forward_transform ? 2.0f : 1.0f );
+        scalar_t const multiplier( forward_transform ? static_cast<scalar_t>( 2 ) : static_cast<scalar_t>( 1 ) );
         dc_re      = multiplier * ( dc_re_input + nyquist_re_input ); dc_im      = 0;
         nyquist_re = multiplier * ( dc_re_input - nyquist_re_input ); nyquist_im = 0;
         /// \note It is crucial that the real Nyquist component be packed into
