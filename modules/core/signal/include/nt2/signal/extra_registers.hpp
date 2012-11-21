@@ -67,7 +67,11 @@ namespace simd
         extra_integer_register & operator=( extra_integer_register const & other   ) { register_ = other.register_; return *this; }
     };
 
-#ifndef BOOST_SIMD_ARCH_X86_64
+#ifdef BOOST_SIMD_ARCH_X86_64
+    /// \note MMX cannot store and operate on 64 bit values (64 bit pointers).
+    ///                                       (09.11.2012.) (Domagoj Saric)
+    template <typename T> struct make_extra_pointer_register { typedef T * BOOST_DISPATCH_RESTRICT type; };
+#else
     #define BOOST_SIMD_HAS_EXTRA_GP_POINTER_REGISTERS
 
     template <typename T>
@@ -94,14 +98,10 @@ namespace simd
         T &                         operator *  () const { return *static_cast<T * BOOST_DISPATCH_RESTRICT>( *this ); }
         T * BOOST_DISPATCH_RESTRICT operator -> () const { return  static_cast<T * BOOST_DISPATCH_RESTRICT>( *this ); }
 
-        operator T * BOOST_DISPATCH_RESTRICT () const { return reinterpret_cast<T * BOOST_DISPATCH_RESTRICT>( static_cast<unsigned int>( *this ) ); }
+        operator T * BOOST_DISPATCH_RESTRICT () const { return reinterpret_cast<T * BOOST_DISPATCH_RESTRICT>( extra_integer_register::operator unsigned int() ); }
     };
 
     template <typename T> struct make_extra_pointer_register { typedef extra_pointer_register<T> type; };
-#else
-    /// \note MMX cannot store and operate on a 64 bit value (64 bit pointer).
-    ///                                       (09.11.2012.) (Domagoj Saric)
-    template <typename T> struct make_extra_pointer_register { typedef T * BOOST_DISPATCH_RESTRICT type; };
 #endif // BOOST_SIMD_ARCH_X86_64
 
 
