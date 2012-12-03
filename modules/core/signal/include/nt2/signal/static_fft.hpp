@@ -124,6 +124,10 @@
 #include <boost/simd/toolbox/constant/constants/zero.hpp>
 #include <boost/simd/toolbox/swar/functions/details/shuffle.hpp>
 
+#ifndef NDEBUG
+    #include <boost/simd/toolbox/predicates/functions/scalar/is_finite.hpp>
+#endif // NDEBUG
+
 
 /// \note control/switch.hpp needs to be included before control/case.hpp
 /// because case.hpp uses the default_construct struct template (from
@@ -1619,8 +1623,8 @@ namespace detail
             scalar_t * BOOST_DISPATCH_RESTRICT const p_half_nyquist_im( &p_imags->data()[ N / 4 ] );
             BOOST_ASSERT( p_lower_reals->data() == p_half_nyquist_re );
             BOOST_ASSERT( p_lower_imags->data() == p_half_nyquist_im );
-            BOOST_ASSERT( *p_half_nyquist_re == half_nyquist_re_check );
-            BOOST_ASSERT( *p_half_nyquist_im == half_nyquist_im_check );
+            BOOST_ASSERT( ( *p_half_nyquist_re == half_nyquist_re_check ) || !boost::simd::is_finite( half_nyquist_re_check ) );
+            BOOST_ASSERT( ( *p_half_nyquist_im == half_nyquist_im_check ) || !boost::simd::is_finite( half_nyquist_im_check ) );
 
             *p_half_nyquist_re *= static_cast<scalar_t>( +2 );
             *p_half_nyquist_im *= static_cast<scalar_t>( -2 );
