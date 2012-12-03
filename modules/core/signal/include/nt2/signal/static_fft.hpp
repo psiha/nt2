@@ -395,6 +395,53 @@ namespace nt2
 
 namespace detail
 {
+    template <typename Vector>
+    static void interleave_two_channels
+    (
+        Vector const * BOOST_DISPATCH_RESTRICT p_channel0,
+        Vector const * BOOST_DISPATCH_RESTRICT p_channel1,
+        Vector       * BOOST_DISPATCH_RESTRICT p_interleaved,
+        std::size_t                            size
+    )
+    {
+        size /= 2;
+        while ( size-- )
+        {
+            Vector const channel0( *p_channel0++ );
+            Vector const channel1( *p_channel1++ );
+
+            Vector * BOOST_DISPATCH_RESTRICT const p_data0( p_interleaved++ );
+            Vector * BOOST_DISPATCH_RESTRICT const p_data1( p_interleaved++ );
+
+            typename Vector::native_type const pair0( boost::simd::interleave_first ( channel0, channel1 ) );
+            typename Vector::native_type const pair1( boost::simd::interleave_second( channel0, channel1 ) );
+
+            *p_data0 = pair0;
+            *p_data1 = pair1;
+        }
+    }
+
+    template <typename Vector>
+    static void deinterleave_two_channels
+    (
+        Vector const * BOOST_DISPATCH_RESTRICT p_interleaved,
+        Vector       * BOOST_DISPATCH_RESTRICT p_channel0,
+        Vector       * BOOST_DISPATCH_RESTRICT p_channel1,
+        std::size_t                            size
+    )
+    {
+        BOOST_ASSERT_MSG( size % 2 == 0, "Two way interleaved data must have an even number of elements." );
+        size /= 2;
+        while ( size-- )
+        {
+            Vector const pair0( *p_interleaved++ );
+            Vector const pair1( *p_interleaved++ );
+
+            *p_channel0++ = boost::simd::deinterleave_first ( pair0, pair1 );
+            *p_channel1++ = boost::simd::deinterleave_second( pair0, pair1 );
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////
     //
     // sign_flipper()
@@ -586,7 +633,8 @@ namespace detail
     template <typename T>
     struct types
     {
-        typedef T                                                        scalar_t;
+        //...mrmlj...meta::vector_of returns an emulated vector if scalar_t is const qualified...
+        typedef typename boost::remove_const<T>::type                    scalar_t;
         typedef typename boost::simd::meta::vector_of<scalar_t, 4>::type vector_t;
         typedef typename vector_t::native_type                           native_t;
 
@@ -601,6 +649,9 @@ namespace detail
         BOOST_ASSERT_MSG( reinterpret_cast<std::size_t>( p_data ) % sizeof( vector_t ) == 0, "Data misaligned." );
         return reinterpret_cast<vector_t *>( p_data );
     }
+
+    template <typename Scalar>
+    typename types<Scalar>::vector_t const * as_vector( Scalar const * const p_data ) { return as_vector( const_cast<Scalar *>( p_data ) ); }
 
 
 #ifdef _MSC_VER
@@ -1090,20 +1141,15 @@ public:
         std::size_t const size
     )
     {
-        // Separate ("deinterleave") into even and odd parts ("emulated"
-        // complex data):
-        vector_t const *                         const p_time_data_end( detail::as_vector( const_cast<T *>( real_time_data + size ) ) );
-        vector_t const * BOOST_DISPATCH_RESTRICT       p_time_data    ( detail::as_vector( const_cast<T *>( real_time_data        ) ) );
-        vector_t       * BOOST_DISPATCH_RESTRICT       p_reals        ( detail::as_vector(                  real_frequency_data     ) );
-        vector_t       * BOOST_DISPATCH_RESTRICT       p_imags        ( detail::as_vector(                  imag_frequency_data     ) );
-        while ( p_time_data < p_time_data_end )
-        {
-            vector_t const pair0( *p_time_data++ );
-            vector_t const pair1( *p_time_data++ );
-
-            *p_reals++ = boost::simd::deinterleave_first ( pair0, pair1 );
-            *p_imags++ = boost::simd::deinterleave_second( pair0, pair1 );
-        }
+        // Separate ("deinterleave") into even and odd parts ("emulated" complex
+        // data):
+        detail::deinterleave_two_channels
+        (
+            detail::as_vector( real_time_data      ),
+            detail::as_vector( real_frequency_data ),
+            detail::as_vector( imag_frequency_data ),
+            size / vector_t::static_size
+        );
 
         typedef detail::inplace_separated_context_t<T> context_t;
         do_transform( forward_real_transformer_t<context_t>( detail::as_vector( real_frequency_data ), detail::as_vector( imag_frequency_data ) ), size );
@@ -1120,24 +1166,13 @@ public:
         typedef detail::inplace_separated_context_t<T> context_t;
         do_transform( backward_real_transformer_t<context_t>( detail::as_vector( real_frequency_data ), detail::as_vector( imag_frequency_data ) ), size );
 
-        vector_t const *                         const p_time_data_end( detail::as_vector( real_time_data + size ) );
-        vector_t       * BOOST_DISPATCH_RESTRICT       p_time_data    ( detail::as_vector( real_time_data        ) );
-        vector_t const * BOOST_DISPATCH_RESTRICT       p_reals        ( detail::as_vector( real_frequency_data   ) );
-        vector_t const * BOOST_DISPATCH_RESTRICT       p_imags        ( detail::as_vector( imag_frequency_data   ) );
-        while ( p_time_data < p_time_data_end )
-        {
-            vector_t * BOOST_DISPATCH_RESTRICT const p_data0( p_time_data++ );
-            vector_t * BOOST_DISPATCH_RESTRICT const p_data1( p_time_data++ );
-
-            vector_t const reals( *p_reals++ );
-            vector_t const imags( *p_imags++ );
-
-            native_t const pair0( boost::simd::interleave_first ( reals, imags ) );
-            native_t const pair1( boost::simd::interleave_second( reals, imags ) );
-
-            *p_data0 = pair0;
-            *p_data1 = pair1;
-        }
+        detail::interleave_two_channels
+        (
+            detail::as_vector( real_frequency_data ),
+            detail::as_vector( imag_frequency_data ),
+            detail::as_vector( real_time_data      ),
+            size / vector_t::static_size
+        );
     }
 
     // todo: transform of two or more real sequences
