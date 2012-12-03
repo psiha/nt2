@@ -97,15 +97,12 @@
 //------------------------------------------------------------------------------
 #include <nt2/signal/twiddle_factors.hpp>
 
-#include <nt2/signal/extra_registers.hpp>       //...mrmlj...to be moved elsewhere...
-#include <nt2/signal/missing_functionality.hpp> //...^
+#include <nt2/signal/extra_registers.hpp>                 //...mrmlj...to be moved elsewhere...
+#include <nt2/signal/interleaved_data_transformation.hpp> //...^
+#include <nt2/signal/missing_functionality.hpp>           //...^
 
 #include <boost/simd/include/functions/scalar/ffs.hpp>
 #include <boost/simd/include/functions/scalar/ilog2.hpp>
-#include <boost/simd/include/functions/simd/deinterleave_first.hpp>
-#include <boost/simd/include/functions/simd/deinterleave_second.hpp>
-#include <boost/simd/include/functions/simd/interleave_first.hpp>
-#include <boost/simd/include/functions/simd/interleave_second.hpp>
 #include <boost/simd/include/functions/simd/make.hpp>
 #include <boost/simd/include/functions/simd/multiplies.hpp>
 #include <boost/simd/include/functions/simd/plus.hpp>
@@ -397,55 +394,8 @@ namespace nt2
 /// surpass ACML and vDSP for the smallest transform sizes.
 ///                                           (13.11.2012.) (Domagoj Saric)
 
-namespace detail
+namespace details
 {
-    template <typename Vector>
-    static void interleave_two_channels
-    (
-        Vector const * BOOST_DISPATCH_RESTRICT p_channel0,
-        Vector const * BOOST_DISPATCH_RESTRICT p_channel1,
-        Vector       * BOOST_DISPATCH_RESTRICT p_interleaved,
-        std::size_t                            size
-    )
-    {
-        size /= 2;
-        while ( size-- )
-        {
-            Vector const channel0( *p_channel0++ );
-            Vector const channel1( *p_channel1++ );
-
-            Vector * BOOST_DISPATCH_RESTRICT const p_data0( p_interleaved++ );
-            Vector * BOOST_DISPATCH_RESTRICT const p_data1( p_interleaved++ );
-
-            typename Vector::native_type const pair0( boost::simd::interleave_first ( channel0, channel1 ) );
-            typename Vector::native_type const pair1( boost::simd::interleave_second( channel0, channel1 ) );
-
-            *p_data0 = pair0;
-            *p_data1 = pair1;
-        }
-    }
-
-    template <typename Vector>
-    static void deinterleave_two_channels
-    (
-        Vector const * BOOST_DISPATCH_RESTRICT p_interleaved,
-        Vector       * BOOST_DISPATCH_RESTRICT p_channel0,
-        Vector       * BOOST_DISPATCH_RESTRICT p_channel1,
-        std::size_t                            size
-    )
-    {
-        BOOST_ASSERT_MSG( size % 2 == 0, "Two way interleaved data must have an even number of elements." );
-        size /= 2;
-        while ( size-- )
-        {
-            Vector const pair0( *p_interleaved++ );
-            Vector const pair1( *p_interleaved++ );
-
-            *p_channel0++ = boost::simd::deinterleave_first ( pair0, pair1 );
-            *p_channel1++ = boost::simd::deinterleave_second( pair0, pair1 );
-        }
-    }
-
     ////////////////////////////////////////////////////////////////////////////
     //
     // sign_flipper()
@@ -981,7 +931,7 @@ namespace detail
             BOOST_UNREACHABLE_CODE();
         }
     };
-} // namespace detail
+} // namespace details
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1001,9 +951,9 @@ template <unsigned short MinimumSize, unsigned short MaximumSize, typename T>
 class static_fft
 {
 private:
-    typedef typename detail::types<T>::scalar_t scalar_t;
-    typedef typename detail::types<T>::vector_t vector_t;
-    typedef typename detail::types<T>::native_t native_t;
+    typedef typename details::types<T>::scalar_t scalar_t;
+    typedef typename details::types<T>::vector_t vector_t;
+    typedef typename details::types<T>::native_t native_t;
 
     typedef
         boost::mpl::range_c
@@ -1039,7 +989,7 @@ private:
             static std::size_t const P = FFTSizeExponent::value;
             static std::size_t const N = 1 << P;
 
-            using namespace detail;
+            using namespace details;
 
             typedef typename context_t::decimation_t decimation_t;
 
@@ -1122,8 +1072,8 @@ private:
 public:
     static void forward_transform( T * const p_real_data, T * const p_imaginary_data, std::size_t const size )
     {
-        typedef detail::inplace_separated_context_t<T> context_t;
-        do_transform( transformer_t<context_t>( detail::as_vector( p_real_data ), detail::as_vector( p_imaginary_data ) ), size );
+        typedef details::inplace_separated_context_t<T> context_t;
+        do_transform( transformer_t<context_t>( details::as_vector( p_real_data ), details::as_vector( p_imaginary_data ) ), size );
     }
 
     static void inverse_transform( T * const p_real_data, T * const p_imaginary_data, std::size_t const size )
@@ -1147,16 +1097,16 @@ public:
     {
         // Separate ("deinterleave") into even and odd parts ("emulated" complex
         // data):
-        detail::deinterleave_two_channels
+        boost::simd::details::deinterleave_two_channels
         (
-            detail::as_vector( real_time_data      ),
-            detail::as_vector( real_frequency_data ),
-            detail::as_vector( imag_frequency_data ),
+            details::as_vector( real_time_data      ),
+            details::as_vector( real_frequency_data ),
+            details::as_vector( imag_frequency_data ),
             size / vector_t::static_size
         );
 
-        typedef detail::inplace_separated_context_t<T> context_t;
-        do_transform( forward_real_transformer_t<context_t>( detail::as_vector( real_frequency_data ), detail::as_vector( imag_frequency_data ) ), size );
+        typedef details::inplace_separated_context_t<T> context_t;
+        do_transform( forward_real_transformer_t<context_t>( details::as_vector( real_frequency_data ), details::as_vector( imag_frequency_data ) ), size );
     }
 
     static void real_inverse_transform //...zzz...destroys the input data...
@@ -1167,14 +1117,14 @@ public:
         std::size_t const size
     )
     {
-        typedef detail::inplace_separated_context_t<T> context_t;
-        do_transform( backward_real_transformer_t<context_t>( detail::as_vector( real_frequency_data ), detail::as_vector( imag_frequency_data ) ), size );
+        typedef details::inplace_separated_context_t<T> context_t;
+        do_transform( backward_real_transformer_t<context_t>( details::as_vector( real_frequency_data ), details::as_vector( imag_frequency_data ) ), size );
 
-        detail::interleave_two_channels
+        boost::simd::details::interleave_two_channels
         (
-            detail::as_vector( real_frequency_data ),
-            detail::as_vector( imag_frequency_data ),
-            detail::as_vector( real_time_data      ),
+            details::as_vector( real_frequency_data ),
+            details::as_vector( imag_frequency_data ),
+            details::as_vector( real_time_data      ),
             size / vector_t::static_size
         );
     }
@@ -1189,7 +1139,7 @@ private:
         (
             boost::simd::ilog2( size ),
             boost::control::case_<fft_sizes_t>(transformer),
-            detail::assert_no_default_case<typename Trasformer::result_type>()
+            details::assert_no_default_case<typename Trasformer::result_type>()
         );
     }
 }; // class static_fft
@@ -1211,7 +1161,7 @@ T real_fft_normalization_factor( std::size_t const size )
 }
 
 
-namespace detail
+namespace details
 {
     ////////////////////////////////////////////////////////////////////////////
     //
@@ -2673,7 +2623,7 @@ namespace detail
             BOOST_STATIC_ASSERT_MSG( sizeof(Decimation) && false, "Recursion should have been terminated before." );
         }
     };
-} // namespace detail
+} // namespace details
 
 
 //...zzz...investigating/testing...
