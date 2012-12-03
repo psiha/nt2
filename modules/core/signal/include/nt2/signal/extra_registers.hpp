@@ -51,8 +51,22 @@ namespace simd
         extra_integer_register & operator++() { return this->operator += ( 1 ); }
         extra_integer_register & operator--() { return this->operator -= ( 1 ); }
 
-        extra_integer_register & operator=( unsigned int const value ) { register_ = _mm_cvtsi32_si64( value ); return *this; }
+        unsigned int operator++( int )
+        {
+            unsigned int const result( this->operator unsigned int() );
+            this->operator++();
+            return result;
+        }
 
+        unsigned int operator--( int )
+        {
+            unsigned int const result( this->operator unsigned int() );
+            this->operator--();
+            return result;
+        }
+
+        extra_integer_register & operator=( unsigned int const value ) { register_ = _mm_cvtsi32_si64( value ); return *this; }
+        BOOST_FORCEINLINE
         operator unsigned int () const { return _mm_cvtsi64_si32( register_ ); }
 
         operator __m64 const & () const { return register_; }
