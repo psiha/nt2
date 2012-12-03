@@ -37,7 +37,7 @@ namespace boost{ namespace simd{ namespace memory{
   enum{integer_L1 = 3, real_L2_L3 = 2, not_frequently_reused = 1, not_reused = 0};
 
   template<int Strategy>
-  void prefetch(void const* pointer)
+  void prefetch(void const * const pointer)
   {
     #ifdef __GNUC__
       __builtin_prefetch(pointer, 0, Strategy);
@@ -46,7 +46,7 @@ namespace boost{ namespace simd{ namespace memory{
     #endif
   }
 
-  void prefetch_temporary(void const* pointer)
+  inline void prefetch_temporary(void const * const pointer)
   {
     prefetch<not_reused>(pointer);
   }
