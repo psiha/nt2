@@ -121,10 +121,6 @@
 #include <boost/simd/toolbox/constant/constants/zero.hpp>
 #include <boost/simd/toolbox/swar/functions/details/shuffle.hpp>
 
-#ifndef NDEBUG
-    #include <boost/simd/toolbox/predicates/functions/scalar/is_finite.hpp>
-#endif // NDEBUG
-
 
 /// \note control/switch.hpp needs to be included before control/case.hpp
 /// because case.hpp uses the default_construct struct template (from
@@ -358,6 +354,7 @@ namespace nt2
 // http://files.codes-sources.com/fichier.aspx?id=38245&f=sorensen%5cfftc.c&lang=en (Sorensen pure-real)
 // http://code.google.com/p/audio-content-analysis/source/browse/trunk/src/rsrfft.cxx?r=9
 // http://kaldi.sourceforge.net/srfft_8cc_source.html
+// http://code.google.com/p/webrtc/source/browse/trunk/src/modules/audio_processing/aec/main/source/aec_rdft_sse2.c?r=299
 // http://wwwdim.uqac.ca/~daudet/Cours/Architecture-bac/DOCUMENTS/repertoire435/MMX-et-SSE-par-Michel-Langlais/exemples-d-Intel/split%20radix%20fft (Intel AP-808)
 // http://software.intel.com/en-us/articles/using-intel-advanced-vector-extensions-to-implement-an-inverse-discrete-cosine-transform
 // https://github.com/pkhuong/Napa-FFT3
@@ -1573,8 +1570,10 @@ namespace details
             scalar_t * BOOST_DISPATCH_RESTRICT const p_half_nyquist_im( &p_imags->data()[ N / 4 ] );
             BOOST_ASSERT( p_lower_reals->data() == p_half_nyquist_re );
             BOOST_ASSERT( p_lower_imags->data() == p_half_nyquist_im );
-            BOOST_ASSERT( ( *p_half_nyquist_re == half_nyquist_re_check ) || !boost::simd::is_finite( half_nyquist_re_check ) );
-            BOOST_ASSERT( ( *p_half_nyquist_im == half_nyquist_im_check ) || !boost::simd::is_finite( half_nyquist_im_check ) );
+            /// \note Allow "broken" half-Nyquist values if input contains NaNs.
+            ///                               (05.12.2012.) (Domagoj Saric)
+            BOOST_ASSERT( ( *p_half_nyquist_re == half_nyquist_re_check ) || ( half_nyquist_re_check != half_nyquist_re_check ) );
+            BOOST_ASSERT( ( *p_half_nyquist_im == half_nyquist_im_check ) || ( half_nyquist_im_check != half_nyquist_im_check ) );
 
             *p_half_nyquist_re *= static_cast<scalar_t>( +2 );
             *p_half_nyquist_im *= static_cast<scalar_t>( -2 );
