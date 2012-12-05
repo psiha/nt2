@@ -1,11 +1,12 @@
 //==============================================================================
 //         Copyright 2003 - 2012   LASMEA UMR 6602 CNRS/Univ. Clermont II
 //         Copyright 2009 - 2012   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//
-//          Distributed under the Boost Software License, Version 1.0.
-//                 See accompanying file LICENSE.txt or copy at
-//                     http://www.boost.org/LICENSE_1_0.txt
-//==============================================================================
+ *         Copyright 2012          Domagoj Saric, Little Endian Ltd.
+ *
+ *          Distributed under the Boost Software License, Version 1.0.
+ *                 See accompanying file LICENSE.txt or copy at
+ *                     http://www.boost.org/LICENSE_1_0.txt
+ ******************************************************************************/
 #ifndef BOOST_SIMD_SDK_SIMD_META_AS_SIMD_HPP_INCLUDED
 #define BOOST_SIMD_SDK_SIMD_META_AS_SIMD_HPP_INCLUDED
 
@@ -16,7 +17,10 @@
 #include <boost/simd/sdk/config/types.hpp>
 #include <boost/simd/sdk/config/compiler.hpp>
 #include <boost/simd/sdk/config/arch.hpp>
+#include <boost/preprocessor/comparison/equal.hpp> //...mrmlj...only for clang...
+#include <boost/preprocessor/control/if.hpp>       //...mrmlj...only for clang...
 #include <boost/preprocessor/seq/for_each.hpp>
+#include <boost/dispatch/meta/as_integer.hpp>      //...mrmlj...only for neon logical...
 #include <boost/dispatch/meta/na.hpp>
 #include <boost/type_traits/is_fundamental.hpp>
 #include <boost/utility/enable_if.hpp>
@@ -42,29 +46,79 @@ namespace boost { namespace simd { namespace meta
     typedef boost::simd::aligned_array<T, N / sizeof(T)> type;
   };
 
+#if !defined( __GNUC__) && !defined( __ARM_NEON__ ) //...mrmlj...
   template<std::size_t N, class T>
   struct as_simd<logical<T>, tag::simd_emulation_<N> >
        : as_simd<T, tag::simd_emulation_<N> >
   {
   };
+#endif // __ARM_NEON__
+
+
+////////////////////////////////////////////////////////////////////////////////
+// GCC/Clang native vector support
+////////////////////////////////////////////////////////////////////////////////
+
+#ifdef __GNUC__
+
+template <typename T> struct builtin_gcc_type { typedef T type; };
+
+#if defined( __ARM_NEON__ )
+    template <std::size_t N, class T>
+    struct as_simd< logical<T>, tag::simd_emulation_<N> >
+        //...mrmlj...gcc generates noticeably slower code when unsigned is used
+        //...mrmlj...in order to remove the casts from the affected instrisics
+        //...mrmlj...calls...
+        : as_simd< typename dispatch::meta::as_integer<T/*, unsigned*/>::type, tag::simd_emulation_<N> > {};
+
+    #if defined( __clang__ )
+        template <> struct as_simd<double, tag::simd_emulation_<16> > { typedef double type __attribute__((__vector_size__(16))); };
+        #define BOOST_SIMD_AUX_BUILTIN_VECTOR( scalar_t, sizeof_vector )                                 \
+            BOOST_PP_IF                                                                                  \
+            (                                                                                            \
+                BOOST_PP_EQUAL( sizeof_vector, 16 ),                                                     \
+                typedef __attribute__((neon_vector_type(sizeof_vector/sizeof(scalar_t)))) scalar_t type, \
+                typedef scalar_t type __attribute__((__vector_size__(sizeof_vector)))                    \
+            )
+    #else // GCC
+        template <> struct builtin_gcc_type<boost::simd::int8_t  > { typedef __builtin_neon_qi  type; };
+        template <> struct builtin_gcc_type<boost::simd::uint8_t > { typedef __builtin_neon_uqi type; };
+        template <> struct builtin_gcc_type<boost::simd::int16_t > { typedef __builtin_neon_hi  type; };
+        template <> struct builtin_gcc_type<boost::simd::uint16_t> { typedef __builtin_neon_uhi type; };
+        template <> struct builtin_gcc_type<boost::simd::int32_t > { typedef __builtin_neon_si  type; };
+        template <> struct builtin_gcc_type<boost::simd::uint32_t> { typedef __builtin_neon_usi type; };
+        template <> struct builtin_gcc_type<boost::simd::int64_t > { typedef __builtin_neon_di  type; };
+        template <> struct builtin_gcc_type<boost::simd::uint64_t> { typedef __builtin_neon_udi type; };
+        template <> struct builtin_gcc_type<float                > { typedef __builtin_neon_sf  type; };
+    #endif // GCC/Clang
+#endif // __ARM_NEON__
+
+#ifndef BOOST_SIMD_AUX_BUILTIN_VECTOR
+    #define BOOST_SIMD_AUX_BUILTIN_VECTOR( scalar_t, sizeof_vector )  \
+        typedef typename builtin_gcc_type<scalar_t>::type type __attribute__((__vector_size__(sizeof_vector)));
+#endif // BOOST_SIMD_AUX_BUILTIN_VECTOR
+
 
   // Some GCC and Clang versions require full specializations
-  #define M0(r,n,t)                                                            \
-  template<>                                                                   \
-  struct as_simd<t, tag::simd_emulation_<n> >                                  \
-  {                                                                            \
-    typedef t type __attribute__((__vector_size__(n)));                        \
-  };                                                                           \
+  #define M0(r,n,t)                           \
+  template<>                                  \
+  struct as_simd<t, tag::simd_emulation_<n> > \
+  {                                           \
+    BOOST_SIMD_AUX_BUILTIN_VECTOR( t, n );    \
+  };                                          \
   /**/
 
+//...mrmlj...clang chokes on doubles with neon...
+#if defined( __clang__ ) && defined( __ARM_NEON__ )
+  #define M1(z,n,t) BOOST_PP_SEQ_FOR_EACH(M0, n, (boost::simd::uint64_t)(boost::simd::int64_t)(boost::simd::uint32_t)(boost::simd::int32_t)(float)(boost::simd::uint16_t)(boost::simd::int16_t)(boost::simd::uint8_t)(boost::simd::int8_t))
 // GCC bug with 64-bit integer types on i686
 // Also affects GCC 4.8.x on x86-64
-#if defined(BOOST_SIMD_COMPILER_GCC) && defined(BOOST_SIMD_ARCH_X86) && ((__GNUC__ == 4 && __GNUC_MINOR__ == 8) || !defined(BOOST_SIMD_ARCH_X86_64))
+#elif defined(BOOST_SIMD_COMPILER_GCC) && defined(BOOST_SIMD_ARCH_X86) && ((__GNUC__ == 4 && __GNUC_MINOR__ == 8) || !defined(BOOST_SIMD_ARCH_X86_64))
   #define M1(z,n,t) BOOST_PP_SEQ_FOR_EACH(M0, n, BOOST_SIMD_SPLITABLE_TYPES(double))
 #else
   #define M1(z,n,t) BOOST_PP_SEQ_FOR_EACH(M0, n, BOOST_SIMD_TYPES)
 #endif
-#ifdef __GNUC__
+
   M0(0, 1, boost::simd::int8_t)
   M0(0, 1, boost::simd::uint8_t)
   M0(0, 2, boost::simd::int8_t)
@@ -79,10 +133,13 @@ namespace boost { namespace simd { namespace meta
   M0(0, 4, boost::simd::uint32_t)
   M0(0, 4, float)
   BOOST_SIMD_PP_REPEAT_POWER_OF_2_FROM(8, M1, ~)
-#endif
+
   #undef M0
   #undef M1
 
+  #undef BOOST_SIMD_AUX_BUILTIN_VECTOR
+
+#endif // __GNUC__ (GCC/Clang native vector support)
 } } }
 
 #endif
