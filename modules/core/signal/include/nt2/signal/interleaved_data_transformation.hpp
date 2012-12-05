@@ -10,6 +10,8 @@
 #ifndef INTERLEAVED_DATA_TRANSFORMATION_HPP_INCLUDED
 #define INTERLEAVED_DATA_TRANSFORMATION_HPP_INCLUDED
 //------------------------------------------------------------------------------
+#include <missing_functionality.hpp>
+
 #include <boost/simd/include/functions/simd/deinterleave_first.hpp>
 #include <boost/simd/include/functions/simd/deinterleave_second.hpp>
 #include <boost/simd/include/functions/simd/interleave_first.hpp>
