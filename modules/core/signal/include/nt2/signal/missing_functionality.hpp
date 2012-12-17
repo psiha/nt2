@@ -116,13 +116,22 @@ namespace ext
   };
 
   // shifts by scalar
-  // subscript access
 #endif // GCC 4.6+
 
 #if ( __GNUC_MINOR__ >= 7 ) || defined( __clang__ )
   // operators ==, !=, <, <=, >, >=
   // splat
 #endif // GCC 4.7+
+
+#if ( __GNUC_MINOR__ >= 8 ) || defined( __clang__ )
+  /// \note GCC should support subscript access since version 4.6 but they
+  /// "forgot" to add this to the C++ frontend:
+  /// http://gcc.gnu.org/bugzilla/show_bug.cgi?id=51033
+  /// http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53094
+  ///                                         (17.12.2012.) (Domagoj Saric)
+  // subscript access
+#endif // GCC 4.8+
+
 #endif // __GNUC__
 
 
@@ -239,8 +248,6 @@ namespace ext
     BOOST_FORCEINLINE typename result<implement(A0_&, A1 const&)>::type
     operator()( A0_& a0, A1 const a1 ) const
     {
-        //...mrmlj...GCC 4.6 should support subscript access but the one from
-        //...mrmlj...the ANDROID r8b NDK does not...
         typedef typename meta::scalar_of<A0_>::type stype;
         return reinterpret_cast<typename meta::may_alias<stype>::type*>(&a0)[a1];
     }
