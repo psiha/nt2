@@ -34,6 +34,8 @@
 #include <boost/simd/toolbox/swar/functions/interleave_second.hpp>
 #include <boost/simd/toolbox/swar/functions/reverse.hpp>
 
+#include <boost/simd/sdk/simd/native.hpp>
+
 #include <boost/type_traits/is_const.hpp>
 //------------------------------------------------------------------------------
 namespace boost
