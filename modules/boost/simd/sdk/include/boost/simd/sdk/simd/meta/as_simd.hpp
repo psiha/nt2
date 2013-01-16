@@ -46,7 +46,7 @@ namespace boost { namespace simd { namespace meta
     typedef boost::simd::aligned_array<T, N / sizeof(T)> type;
   };
 
-#if !defined( __GNUC__) && !defined( __ARM_NEON__ ) //...mrmlj...
+#if !defined( __GNUC__ ) && !defined( __ARM_NEON__ ) //...mrmlj...
   template<std::size_t N, class T>
   struct as_simd<logical<T>, tag::simd_emulation_<N> >
        : as_simd<T, tag::simd_emulation_<N> >
