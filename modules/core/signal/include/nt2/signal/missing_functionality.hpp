@@ -367,7 +367,7 @@ namespace details
     >
     BOOST_FORCEINLINE Vector shuffle( Vector const & lower, Vector const & upper )
     {
-        return __builtin_shufflevector( lower, upper, 0 + lower_i0, 0 + lower_i1, 4 + upper_i0, 4 + upper_i1 );
+        return __builtin_shufflevector( lower(), upper(), 0 + lower_i0, 0 + lower_i1, 4 + upper_i0, 4 + upper_i1 );
     }
 
     template
@@ -380,7 +380,7 @@ namespace details
         return shuffle<i0, i1, i2, i3>( vector, vector );
     }
 #elif defined( __GNUC__ ) && defined( __ARM_NEON__ )
-    #if ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) >= 47 )
+    #if ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) >= 47 ) && !defined( __ANDROID__ ) //...mrmlj...does not seem to work with the r8e gcc 4.7??
         typedef native<unsigned int, BOOST_SIMD_DEFAULT_EXTENSION>::native_type shuffle_mask_t;
         template
         <
