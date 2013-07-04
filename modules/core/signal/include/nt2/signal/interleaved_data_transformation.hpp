@@ -42,6 +42,7 @@ static void interleave_two_channels
     std::size_t                            size
 )
 {
+    BOOST_ASSERT_MSG( size % 2 == 0, "Two way interleaved data must have an even number of elements." );
     size /= 2;
     while ( size-- )
     {
