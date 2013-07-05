@@ -52,7 +52,7 @@ namespace boost { namespace simd { namespace meta
        : as_simd<T, tag::simd_emulation_<N> >
   {
   };
-#endif // __ARM_NEON__
+#endif // !__GNUC__ && !__ARM_NEON__
 
 
 ////////////////////////////////////////////////////////////////////////////////
