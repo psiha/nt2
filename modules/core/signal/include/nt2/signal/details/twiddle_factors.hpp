@@ -14,6 +14,7 @@
     #define _USE_MATH_DEFINES
 #endif
 
+#include <nt2/signal/missing_functionality.hpp> //...mrmlj...to be moved elsewhere...
 #include <nt2/signal/details/static_sincos.hpp>
 
 #include <nt2/include/functions/scalar/sincospi.hpp>

@@ -13,9 +13,12 @@
 #include <boost/simd/toolbox/operator/functions/bitwise_and.hpp>
 #include <boost/simd/toolbox/operator/functions/bitwise_or.hpp>
 #include <boost/simd/toolbox/operator/functions/bitwise_xor.hpp>
-#include <boost/simd/toolbox/operator/functions/extract.hpp>
 #include <boost/simd/toolbox/operator/functions/complement.hpp>
 #include <boost/simd/toolbox/operator/functions/divides.hpp>
+#include <boost/simd/toolbox/operator/functions/extract.hpp>
+#include <boost/simd/toolbox/operator/functions/insert.hpp>
+#include <boost/simd/toolbox/operator/functions/is_less.hpp>
+#include <boost/simd/toolbox/operator/functions/is_greater_equal.hpp>
 #include <boost/simd/toolbox/operator/functions/make.hpp>
 #include <boost/simd/toolbox/operator/functions/simd/details/make_helper.hpp>
 #include <boost/simd/toolbox/operator/functions/minus.hpp>
@@ -34,6 +37,7 @@
 #include <boost/simd/toolbox/swar/functions/interleave_second.hpp>
 #include <boost/simd/toolbox/swar/functions/reverse.hpp>
 
+#include <boost/simd/sdk/memory/iterator.hpp>
 #include <boost/simd/sdk/simd/native.hpp>
 
 #include <boost/type_traits/is_const.hpp>
