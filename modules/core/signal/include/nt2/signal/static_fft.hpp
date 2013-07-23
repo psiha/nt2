@@ -95,7 +95,7 @@
 #endif // BOOST_ASSUME
 
 //------------------------------------------------------------------------------
-#include <nt2/signal/twiddle_factors.hpp>
+#include <nt2/signal/details/twiddle_factors.hpp>
 
 #include <nt2/signal/extra_registers.hpp>                 //...mrmlj...to be moved elsewhere...
 #include <nt2/signal/interleaved_data_transformation.hpp> //...^
@@ -110,16 +110,16 @@
 #include <boost/simd/include/functions/simd/repeat_upper_half.hpp> //...mrmlj...<-
 #include <boost/simd/include/functions/simd/reverse.hpp>
 #include <boost/simd/include/functions/simd/unary_minus.hpp>
-#include <boost/simd/include/functions/simd/unaligned_load.hpp>
-#include <boost/simd/include/functions/simd/unaligned_store.hpp>
+#include <boost/simd/memory/functions/load.hpp>
+#include <boost/simd/memory/functions/store.hpp>
 #include <boost/simd/sdk/config/arch.hpp>
 #include <boost/simd/sdk/memory/prefetch.hpp>
 #include <boost/simd/sdk/simd/extensions.hpp>
 #include <boost/simd/sdk/simd/native.hpp>
-#include <boost/simd/toolbox/constant/constants/half.hpp>
-#include <boost/simd/toolbox/constant/constants/mzero.hpp>
-#include <boost/simd/toolbox/constant/constants/zero.hpp>
-#include <boost/simd/toolbox/swar/functions/details/shuffle.hpp>
+#include <boost/simd/constant/constants/half.hpp>
+#include <boost/simd/constant/constants/mzero.hpp>
+#include <boost/simd/constant/constants/zero.hpp>
+#include <boost/simd/swar/functions/details/shuffle.hpp>
 
 
 /// \note control/switch.hpp needs to be included before control/case.hpp
