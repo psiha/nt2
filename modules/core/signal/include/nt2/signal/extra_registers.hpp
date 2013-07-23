@@ -79,7 +79,7 @@ namespace simd
 
         extra_integer_register & operator=( __m64                  const & builtin ) { register_ = builtin        ; return *this; }
         extra_integer_register & operator=( extra_integer_register const & other   ) { register_ = other.register_; return *this; }
-    };
+    }; // struct extra_integer_register
 
 #ifdef BOOST_SIMD_ARCH_X86_64
     /// \note MMX cannot store and operate on 64 bit values (64 bit pointers).
