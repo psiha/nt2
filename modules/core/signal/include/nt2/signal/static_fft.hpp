@@ -818,7 +818,7 @@ namespace details
         vector_t * BOOST_DISPATCH_RESTRICT prefetched_element( char * BOOST_DISPATCH_RESTRICT const p_data, unsigned int const part ) const
         {
             vector_t * BOOST_DISPATCH_RESTRICT const p_element( element( p_data, part ) );
-            boost::simd::memory::prefetch_temporary( p_element );
+            boost::simd::prefetch_temporary( p_element );
             return p_element;
         }
 
@@ -883,7 +883,7 @@ namespace details
         //{
         //    typename pointer_type<PointerIndex>::type const & p_element( pointer<PointerIndex>() );
         //    BOOST_ASSUME( p_element != 0 );
-        //    boost::simd::memory::prefetch_temporary( p_element );
+        //    boost::simd::prefetch_temporary( p_element );
         //    return p_element;
         //}
         template <unsigned int Part>
@@ -891,7 +891,7 @@ namespace details
         {
             vector_t * BOOST_DISPATCH_RESTRICT const p_element( &p_base[ N / 4 / vector_t::static_size * Part ] );
             BOOST_ASSUME( p_element != 0 );
-            boost::simd::memory::prefetch_temporary( p_element );
+            boost::simd::prefetch_temporary( p_element );
             return p_element;
         }
 
@@ -1471,7 +1471,7 @@ namespace details
     )
     {
         twiddles const * BOOST_DISPATCH_RESTRICT p_twiddles( p_twiddle_factors );
-        boost::simd::memory::prefetch_temporary( p_twiddles );
+        boost::simd::prefetch_temporary( p_twiddles );
 
         vector_t * BOOST_DISPATCH_RESTRICT p_lower_reals(  p_reals );
         vector_t * BOOST_DISPATCH_RESTRICT p_lower_imags(  p_imags );
@@ -1492,9 +1492,9 @@ namespace details
 
         while ( p_lower_reals->data() < p_upper_reals )
         {
-            using boost::simd::reverse        ;
-            using boost::simd::unaligned_load ;
-            using boost::simd::unaligned_store;
+            using boost::simd::reverse;
+            using boost::simd::load   ;
+            using boost::simd::store  ;
 
         /* "straight" implementation:
             // the following two constants go outside the loop:
@@ -1505,10 +1505,10 @@ namespace details
             vector_t const wi( p_twiddle_factors->wi ^ *p_twiddle_sign_flipper );
             p_twiddle_factors++;
 
-            vector_t const upper_r( reverse( unaligned_load<vector_t>( p_upper_reals ) ) );
-            vector_t const upper_i( reverse( unaligned_load<vector_t>( p_upper_imags ) ) );
-            vector_t const lower_r(                                   *p_lower_reals     );
-            vector_t const lower_i(                                   *p_lower_imags     );
+            vector_t const upper_r( reverse( load<vector_t>( p_upper_reals ) ) );
+            vector_t const upper_i( reverse( load<vector_t>( p_upper_imags ) ) );
+            vector_t const lower_r(                         *p_lower_reals     );
+            vector_t const lower_i(                         *p_lower_imags     );
 
             vector_t const h1r(        half * ( lower_r + upper_r ) );
             vector_t const h1i(        half * ( lower_i - upper_i ) );
@@ -1523,10 +1523,10 @@ namespace details
             /// normalization factor.
             ///                               (27.06.2012.) (Domagoj Saric)
 
-            vector_t const upper_r( reverse( unaligned_load<vector_t>( p_upper_reals ) ) );
-            vector_t const upper_i( reverse( unaligned_load<vector_t>( p_upper_imags ) ) );
-            vector_t const lower_r(                                   *p_lower_reals     );
-            vector_t const lower_i(                                   *p_lower_imags     );
+            vector_t const upper_r( reverse( load<vector_t>( p_upper_reals ) ) );
+            vector_t const upper_i( reverse( load<vector_t>( p_upper_imags ) ) );
+            vector_t const lower_r(                         *p_lower_reals     );
+            vector_t const lower_i(                         *p_lower_imags     );
 
             vector_t const wr( p_twiddles->w0.wr ^ twiddle_sign_flipper );
             vector_t const wi( p_twiddles->w0.wi                        );
@@ -1545,8 +1545,8 @@ namespace details
             vector_t const result_upper_i( reverse( h_temp_i - h1i      ) );
             vector_t const result_lower_i(          h1i      + h_temp_i   );
 
-            unaligned_store( result_upper_r, p_upper_reals );
-            unaligned_store( result_upper_i, p_upper_imags );
+            store( result_upper_r, p_upper_reals );
+            store( result_upper_i, p_upper_imags );
 
             p_upper_reals -= vector_t::static_size;
             p_upper_imags -= vector_t::static_size;
@@ -1611,7 +1611,7 @@ namespace details
     )
     {
         real2complex_twiddles const * BOOST_DISPATCH_RESTRICT p_twiddles( p_twiddle_factors );
-        boost::simd::memory::prefetch_temporary( p_twiddles );
+        boost::simd::prefetch_temporary( p_twiddles );
 
         scalar_t * BOOST_DISPATCH_RESTRICT p_lower_reals( &p_reals->data()[ 1 ] );
         scalar_t * BOOST_DISPATCH_RESTRICT p_lower_imags( &p_imags->data()[ 1 ] );
@@ -1632,18 +1632,18 @@ namespace details
 
         while ( p_lower_reals < p_upper_reals->data() )
         {
-            using boost::simd::reverse        ;
-            using boost::simd::unaligned_load ;
-            using boost::simd::unaligned_store;
+            using boost::simd::reverse;
+            using boost::simd::load   ;
+            using boost::simd::store  ;
 
-            vector_t const upper_r( reverse                 ( *p_upper_reals ) );
-            vector_t const upper_i( reverse                 ( *p_upper_imags ) );
-            vector_t const lower_r( unaligned_load<vector_t>(  p_lower_reals ) );
-            vector_t const lower_i( unaligned_load<vector_t>(  p_lower_imags ) );
+            vector_t const upper_r( reverse       ( *p_upper_reals ) );
+            vector_t const upper_i( reverse       ( *p_upper_imags ) );
+            vector_t const lower_r( load<vector_t>(  p_lower_reals ) );
+            vector_t const lower_i( load<vector_t>(  p_lower_imags ) );
 
             vector_t const wr( p_twiddles->wr ^ twiddle_sign_flipper );
             vector_t const wi( p_twiddles->wi                        );
-            boost::simd::memory::prefetch_temporary( ++p_twiddles );
+            boost::simd::prefetch_temporary( ++p_twiddles );
 
             vector_t const h1r( lower_r + upper_r );
             vector_t const h1i( lower_i - upper_i );
@@ -1658,8 +1658,8 @@ namespace details
             vector_t const result_lower_i(          h1i      + h_temp_i   );
             vector_t const result_upper_i( reverse( h_temp_i - h1i      ) );
 
-            unaligned_store( result_lower_r, p_lower_reals );
-            unaligned_store( result_lower_i, p_lower_imags );
+            store( result_lower_r, p_lower_reals );
+            store( result_lower_i, p_lower_imags );
             p_lower_reals += vector_t::static_size;
             p_lower_imags += vector_t::static_size;
 
@@ -1714,7 +1714,7 @@ namespace details
 
         do
         {
-            boost::simd::memory::prefetch_temporary( p_w );
+            boost::simd::prefetch_temporary( p_w );
             Decimation:: template butterfly<typename Context::vector_t>
             (
                 context. template r<0>(), context. template i<0>(),
@@ -2391,7 +2391,7 @@ namespace details
             typedef typename Context::vector_t vector_t;
 
             split_radix_twiddles<vector_t> const * BOOST_DISPATCH_RESTRICT const p_w( Context:: template twiddle_factors<N>() );
-            boost::simd::memory::prefetch_temporary( p_w );
+            boost::simd::prefetch_temporary( p_w );
         #ifdef _MSC_VER
             /// \note MSVC reorders the prefetch (much) further down and
             /// benchmarking shows this to be a smart decision.
@@ -2560,7 +2560,7 @@ namespace details
 
             typename Context::twiddles const * BOOST_DISPATCH_RESTRICT p_w( Context:: template twiddle_factors<N>() );
 
-            boost::simd::memory::prefetch_temporary( p_w );
+            boost::simd::prefetch_temporary( p_w );
             Decimation:: template butterfly<typename Context::vector_t>
             (
                 context. template r<0>(), context. template i<0>(),
@@ -2573,7 +2573,7 @@ namespace details
             ++context;
             ++p_w    ;
 
-            boost::simd::memory::prefetch_temporary( p_w );
+            boost::simd::prefetch_temporary( p_w );
             Decimation:: template butterfly<typename Context::vector_t>
             (
                 context. template r<0>(), context. template i<0>(),
