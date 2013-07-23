@@ -112,8 +112,8 @@
 #include <boost/simd/include/functions/simd/unary_minus.hpp>
 #include <boost/simd/memory/functions/load.hpp>
 #include <boost/simd/memory/functions/store.hpp>
+#include <boost/simd/memory/prefetch.hpp>
 #include <boost/simd/sdk/config/arch.hpp>
-#include <boost/simd/sdk/memory/prefetch.hpp>
 #include <boost/simd/sdk/simd/extensions.hpp>
 #include <boost/simd/sdk/simd/native.hpp>
 #include <boost/simd/constant/constants/half.hpp>
