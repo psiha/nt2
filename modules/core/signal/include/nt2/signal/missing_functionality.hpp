@@ -237,53 +237,23 @@ namespace ext
     ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >)
   )
   {
-    float operator()( float32x4_t const a0, A1 const a1 ) const { return vgetq_lane_f32( a0, a1 ); }
-
-    //...mrmlj...some code wants non-const references...
-    template<class Sig>
-    struct result;
-
-    template<class This, class A0_, class A1_>
-    struct result<This(A0_, A1_)>
-    {
-        typedef typename meta::scalar_of<typename remove_reference<A0_>::type>::type stype;
-        typedef typename mpl::if_<is_const<stype>, stype, typename meta::may_alias<stype>::type &>::type type;
-    };
-
-    template<class A0_>
-    BOOST_FORCEINLINE typename result<implement(A0_&, A1 const&)>::type
-    operator()( A0_& a0, A1 const a1 ) const
-    {
-        typedef typename meta::scalar_of<A0_>::type stype;
-        return reinterpret_cast<typename meta::may_alias<stype>::type*>(&a0)[a1];
-    }
+    typedef float result_type;
+    result_type operator()( float32x4_t const a0, A1 const a1 ) const { return vgetq_lane_f32( a0, a1 ); }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
-    typedef float32x4_t & result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, float32x4_t & a1, int const a2 ) const
-    {
-      a1 = vsetq_lane_f32( a0, a1, a2 );
-      return a1;
-    }
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, float32x4_t & a1, int const a2 ) const { a1 = vsetq_lane_f32( a0, a1, a2 ); }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
-    typedef uint32x4_t & result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, uint32x4_t & a1, int const a2 ) const
-    {
-      a1 = vsetq_lane_u32( a0, a1, a2 );
-      return a1;
-    }
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, uint32x4_t & a1, int const a2 ) const { a1 = vsetq_lane_u32( a0, a1, a2 ); }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
-    typedef int32x4_t & result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, int32x4_t & a1, int const a2 ) const
-    {
-      a1 = vsetq_lane_s32( a0, a1, a2 );
-      return a1;
-    }
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, int32x4_t & a1, int const a2 ) const { a1 = vsetq_lane_s32( a0, a1, a2 ); }
   };
 #endif // __GNUC__ && !__clang__
 
@@ -299,32 +269,23 @@ namespace ext
     ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >)
   )
   {
-    //...mrmlj...some code wants non-const references...
-    template<class Sig>
-    struct result;
-    template<class This, class A0_, class A1_>
-    struct result<This(A0_, A1_)>
-    {
-        typedef typename meta::scalar_of<typename remove_reference<A0_>::type>::type stype;
-        typedef typename mpl::if_<is_const<stype>, stype, typename meta::may_alias<stype>::type &>::type type;
-    };
-    float   operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
-    float & operator()( A0       & a0, A1 const a1 ) const { return reinterpret_cast<typename meta::may_alias<float>::type*>(&(a0()))[ a1 ]; }
+    typedef float result_type;
+    result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
-    typedef A1 & result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; return a1; }
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
-    typedef A1 & result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; return a1; }
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
-    typedef A1 & result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; return a1; }
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
   };
 #endif // __clang__
 
