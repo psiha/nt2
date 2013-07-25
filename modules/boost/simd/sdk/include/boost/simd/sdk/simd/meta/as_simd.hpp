@@ -46,13 +46,16 @@ namespace boost { namespace simd { namespace meta
     typedef boost::simd::aligned_array<T, N / sizeof(T)> type;
   };
 
-#if !defined( __GNUC__ ) && !defined( __ARM_NEON__ ) //...mrmlj...
+//...mrmlj...when using GCC/Clang native vectors the vectors for logical seem to
+//...mrmlj...have to be of the same size as their corresponding 'value'/number
+//...mrmlj...vectors so the default logical<T> implementation has to be skipped
+#if !defined( __GNUC__ ) || defined( BOOST_SIMD_DETECTED )
   template<std::size_t N, class T>
   struct as_simd<logical<T>, tag::simd_emulation_<N> >
        : as_simd<T, tag::simd_emulation_<N> >
   {
   };
-#endif // !__GNUC__ && !__ARM_NEON__
+#endif // !__GNUC__ || BOOST_SIMD_DETECTED
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,12 +67,11 @@ namespace boost { namespace simd { namespace meta
 template <typename T> struct builtin_gcc_type { typedef T type; };
 
 #if defined( __ARM_NEON__ )
+    //...mrmlj...gcc generates noticeably slower code when unsigned is used
+    //...mrmlj...in order to remove the casts from the affected instrisics
+    //...mrmlj...calls...
     template <std::size_t N, class T>
-    struct as_simd< logical<T>, tag::simd_emulation_<N> >
-        //...mrmlj...gcc generates noticeably slower code when unsigned is used
-        //...mrmlj...in order to remove the casts from the affected instrisics
-        //...mrmlj...calls...
-        : as_simd< typename dispatch::meta::as_integer<T/*, unsigned*/>::type, tag::simd_emulation_<N> > {};
+    struct as_simd<logical<T>, tag::simd_emulation_<N> > : as_simd< typename dispatch::meta::as_integer<T>::type, tag::simd_emulation_<N> > {};
 
     #if defined( __clang__ )
         template <> struct as_simd<double, tag::simd_emulation_<16> > { typedef double type __attribute__((__vector_size__(16))); };
@@ -91,6 +93,9 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
         template <> struct builtin_gcc_type<boost::simd::uint64_t> { typedef __builtin_neon_udi type; };
         template <> struct builtin_gcc_type<float                > { typedef __builtin_neon_sf  type; };
     #endif // GCC/Clang
+#else // no NEON
+    template <std::size_t N, class T>
+    struct as_simd<logical<T>, tag::simd_emulation_<N> > : as_simd< typename dispatch::meta::as_integer<T, unsigned>::type, tag::simd_emulation_<N> > {};
 #endif // __ARM_NEON__
 
 #ifndef BOOST_SIMD_AUX_BUILTIN_VECTOR
