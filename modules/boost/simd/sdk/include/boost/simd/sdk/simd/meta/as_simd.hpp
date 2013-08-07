@@ -93,7 +93,7 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
         template <> struct builtin_gcc_type<boost::simd::uint64_t> { typedef __builtin_neon_udi type; };
         template <> struct builtin_gcc_type<float                > { typedef __builtin_neon_sf  type; };
     #endif // GCC/Clang
-#else // no NEON
+#elif defined( __arm__ ) // no NEON
     template <std::size_t N, class T>
     struct as_simd<logical<T>, tag::simd_emulation_<N> > : as_simd< typename dispatch::meta::as_integer<T, unsigned>::type, tag::simd_emulation_<N> > {};
 #endif // __ARM_NEON__
