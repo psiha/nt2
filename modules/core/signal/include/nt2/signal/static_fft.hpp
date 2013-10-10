@@ -618,10 +618,6 @@ namespace details
     // \struct inplace_separated_context_t
     ////////////////////////////////////////////////////////////////////////////
 
-    /// \note Clang (Xcode 4.5.1) completely brainfarts when MMX is used
-    /// (constantly converts between MMX and GP registers and/or keeps copies of
-    /// pointers in both registers and all of that through the stack of course).
-    ///                                       (31.10.2012.) (Domagoj Saric)
     /// \note MSVC10 has rather intelligent indexed<->pointer arithmetic
     /// transformations so even if NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP is defined
     /// it will partially transform it to pointer arithmetic (but not
@@ -632,11 +628,11 @@ namespace details
     /// \todo Investigate, configure and document for other x86/"poor man's ISA"
     /// compilers.
     ///                                       (31.10.2012.) (Domagoj Saric)
-    #if defined( __clang__ ) && defined( BOOST_SIMD_ARCH_X86 ) && !defined( BOOST_SIMD_ARCH_X86_64 )
+    #if !defined( BOOST_SIMD_HAS_EXTRA_GP_REGISTERS ) && !defined( BOOST_MSVC )
         #define NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
     #endif
 
-    #if !defined( NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP ) && defined( BOOST_SIMD_ARCH_X86 ) && !defined( BOOST_SIMD_ARCH_X86_64 ) //...mrmlj...waiting for #185...x64 has enough gprs...
+    #if defined( BOOST_SIMD_HAS_EXTRA_GP_REGISTERS ) && ( defined( BOOST_SIMD_ARCH_X86 ) && !defined( BOOST_SIMD_ARCH_X86_64 ) ) //...mrmlj...waiting for #185...x64 has enough gprs...
         #define NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS
     #endif // "poor man's ISA" check
 
@@ -763,6 +759,8 @@ namespace details
             /// happiest solution safety wise and would ideally require the
             /// compiler to provide an intrinsic/pragma/something with which we
             /// could tell it that it must not use x87 in a given function.
+            /// http://msdn.microsoft.com/en-us/library/ays9ef83(v=vs.100).aspx
+            /// http://software.intel.com/en-us/articles/switch-between-instruction-types-on-32-bit-intel-architecture
             ///                               (10.10.2013.) (Domagoj Saric)
             boost::simd::extra_registers_cleanup();
             scramble<valid_bits>( p_reals->data(), p_imags->data() );
