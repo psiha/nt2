@@ -117,7 +117,12 @@ namespace boost { namespace simd
 
     /// @brief Constructs a native from a extension specific register
     BOOST_FORCEINLINE native(native_type s) : data_(s) {}
-
+    /// \note Wokaround for bad MSVC codegen (lots of redundant copying of
+    /// vectors and/or unaligned loads depending on the compiler version).
+    /// The below copy constructor is explicitly defined for the same
+    /// reason.
+    /// Latest version tested: MSVC12).
+    ///                                   (10.10.2013.) (Domagoj Saric)
 #if defined(BOOST_MSVC) || defined(DOXYGEN_ONLY)
     /// @brief Copy constructs a native from another one
     BOOST_FORCEINLINE native(native const& other) : data_(other.data_) {}
