@@ -38,7 +38,11 @@
 #if defined( _MSC_VER )
 
     #define BOOST_NOTHROW_NOALIAS __declspec( nothrow noalias )
-    #define BOOST_FASTCALL __fastcall
+    #if _MSC_VER >= 1800
+        #define BOOST_FASTCALL __vectorcall
+    #else
+        #define BOOST_FASTCALL __fastcall
+    #endif // _MSC_VER
     #define BOOST_UNREACHABLE_CODE()  BOOST_ASSERT_MSG( false    , "This code should not be reached." ); __assume( false     )
     #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken."               ); __assume( condition )
 
@@ -50,10 +54,8 @@
     ///                                       (09.07.2012.) (Domagoj Saric)
     #define BOOST_NOTHROW_NOALIAS __attribute__(( nothrow ))
     #if defined( BOOST_SIMD_ARCH_X86 ) && !defined( BOOST_SIMD_ARCH_X86_64 )
-        #if defined( __clang__ )
-            #define BOOST_FASTCALL __attribute__(( regparm( 3 ) ))
-        #elif defined( BOOST_SIMD_HAS_SSE_SUPPORT )
-            #define BOOST_FASTCALL __attribute__(( regparm( 3 ), sseregparm, hot ))
+        #if defined( BOOST_SIMD_HAS_SSE_SUPPORT ) && !defined( __clang__ )
+            #define BOOST_FASTCALL __attribute__(( regparm( 3 ), hot, sseregparm ))
         #else
             #define BOOST_FASTCALL __attribute__(( regparm( 3 ), hot ))
         #endif // __clang__
@@ -1597,7 +1599,7 @@ namespace details
         ///                                   (18.07.2012.) (Domagoj Saric)
         if ( !forward_transform )
             dc_im = nyquist_re;
-    } // inplace_separated_context_t<T>::separate()
+    } // inplace_separated_context_t<T>::separate_a()
 
     template <typename T>
     BOOST_NOINLINE
@@ -1693,7 +1695,7 @@ namespace details
         nyquist_re = multiplier * ( dc_re_input - nyquist_re_input ); nyquist_im = 0;
         if ( !forward_transform )
             dc_im = nyquist_re;
-    } // inplace_separated_context_t<T>::separate()
+    } // inplace_separated_context_t<T>::separate_b()
 
 
     ////////////////////////////////////////////////////////////////////////////
