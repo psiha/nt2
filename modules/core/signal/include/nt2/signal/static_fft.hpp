@@ -128,8 +128,11 @@
 /// because case.hpp uses the default_construct struct template (from
 /// switch.hpp) without forward declaring it.
 ///                                           (09.10.2012.) (Domagoj Saric)
+#pragma warning( push )
+#pragma warning( disable : 4512 ) // Assignment operator could not be generated.
 #include <boost/control/switch.hpp>
 #include <boost/control/case.hpp>
+#pragma warning( pop )
 
 #include <boost/assert.hpp>
 #include <boost/cstdint.hpp>
