@@ -431,7 +431,7 @@ namespace details
 
     template <typename Vector, bool e0, bool e1, bool e2, bool e3>
     BOOST_FORCEINLINE
-    Vector const * BOOST_DISPATCH_RESTRICT sign_flipper()
+    Vector const * sign_flipper()
     {
         /// \note MSVC10 sometimes generates wrong constants (especially when
         /// the reversed set function (_mm_setr_ps) is used.
@@ -725,7 +725,7 @@ namespace details
         }
 
         template <unsigned N>
-        static twiddles const * BOOST_DISPATCH_RESTRICT twiddle_factors() { return twiddles_interleaved<N, vector_t>::factors(); }
+        static twiddles const * twiddle_factors() { return twiddles_interleaved<N, vector_t>::factors(); }
 
         unsigned int remaining_iterations() const { return counter_; }
 
@@ -810,24 +810,24 @@ namespace details
 
 #ifdef NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
     private:
-        vector_t * BOOST_DISPATCH_RESTRICT element( char * BOOST_DISPATCH_RESTRICT const p_data, unsigned int const part ) const
+        vector_t * element( char * BOOST_DISPATCH_RESTRICT const p_data, unsigned int const part ) const
         {
             char * BOOST_DISPATCH_RESTRICT const p_element( &p_data[ part << log2_N4_bytes_ ] );
             BOOST_ASSUME( p_element );
             return reinterpret_cast<vector_t *>( p_element );
         }
 
-        vector_t * BOOST_DISPATCH_RESTRICT prefetched_element( char * BOOST_DISPATCH_RESTRICT const p_data, unsigned int const part ) const
+        vector_t * prefetched_element( char * BOOST_DISPATCH_RESTRICT const p_data, unsigned int const part ) const
         {
             vector_t * BOOST_DISPATCH_RESTRICT const p_element( element( p_data, part ) );
             boost::simd::prefetch_temporary( p_element );
             return p_element;
         }
 
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT r_element           (                                                                        ) const { return element           ( p_reals_, part ); }
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT i_element           (                                                                        ) const { return element           ( p_imags_, part ); }
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT r_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_reals_, part ); }
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT i_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_imags_, part ); }
+        template <unsigned int part> vector_t * r_element           (                                                                        ) const { return element           ( p_reals_, part ); }
+        template <unsigned int part> vector_t * i_element           (                                                                        ) const { return element           ( p_imags_, part ); }
+        template <unsigned int part> vector_t * r_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_reals_, part ); }
+        template <unsigned int part> vector_t * i_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_imags_, part ); }
 
     private:
         char * BOOST_DISPATCH_RESTRICT p_reals_;
@@ -889,7 +889,7 @@ namespace details
         //    return p_element;
         //}
         template <unsigned int Part>
-        vector_t * BOOST_DISPATCH_RESTRICT prefetched_element( parameter0_t const p_base, unsigned int const N ) const
+        vector_t * prefetched_element( parameter0_t const p_base, unsigned int const N ) const
         {
             vector_t * BOOST_DISPATCH_RESTRICT const p_element( &p_base[ N / 4 / vector_t::static_size * Part ] );
             BOOST_ASSUME( p_element != 0 );
@@ -901,8 +901,8 @@ namespace details
         template <unsigned int part> typename pointer_type<1 * 4 + part>::type const & i_element           () const { return pointer           <1 * 4 + part>(); }
       //template <unsigned int part> typename pointer_type<0 * 4 + part>::type const & r_prefetched_element() const { return prefetched_element<0 * 4 + part>(); }
       //template <unsigned int part> typename pointer_type<1 * 4 + part>::type const & i_prefetched_element() const { return prefetched_element<1 * 4 + part>(); }
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT r_prefetched_element( parameter0_t const   p_reals  , parameter1_t const /*p_imags*/, unsigned int const N ) const { return prefetched_element<part>( p_reals, N ); }
-        template <unsigned int part> vector_t * BOOST_DISPATCH_RESTRICT i_prefetched_element( parameter0_t const /*p_reals*/, parameter1_t const   p_imags  , unsigned int const N ) const { return prefetched_element<part>( p_imags, N ); }
+        template <unsigned int part> vector_t * r_prefetched_element( parameter0_t const   p_reals  , parameter1_t const /*p_imags*/, unsigned int const N ) const { return prefetched_element<part>( p_reals, N ); }
+        template <unsigned int part> vector_t * i_prefetched_element( parameter0_t const /*p_reals*/, parameter1_t const   p_imags  , unsigned int const N ) const { return prefetched_element<part>( p_imags, N ); }
 
     private:
         counter_t                                    counter_;
