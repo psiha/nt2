@@ -30,8 +30,11 @@ namespace simd
     #endif
 #endif // BOOST_SIMD_HAS_MMX_SUPPORT
 
-
-#if defined( BOOST_SIMD_HAS_MMX_SUPPORT )
+/// \note Clang (Xcode 4.5.1 till 5.0) completely brainfarts when MMX is used
+/// (constantly converts between MMX and GP registers and/or keeps copies of
+/// pointers in both registers and all of that through the stack of course).
+///                                       (31.10.2012.) (Domagoj Saric)
+#if defined( BOOST_SIMD_HAS_MMX_SUPPORT ) && !defined( __clang__ )
 
     #define BOOST_SIMD_HAS_EXTRA_GP_REGISTERS
 
