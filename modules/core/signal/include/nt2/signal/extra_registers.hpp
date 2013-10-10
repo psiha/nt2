@@ -35,10 +35,10 @@ namespace simd
 
     #define BOOST_SIMD_HAS_EXTRA_GP_REGISTERS
 
-    #ifdef _MSC_VER
-        #pragma warning( push )
-        #pragma warning( disable : 4799 ) // Function has no EMMS instruction.
-    #endif // _MSC_VER
+#ifdef _MSC_VER
+    #pragma warning( push )
+    #pragma warning( disable : 4799 ) // Function has no EMMS instruction.
+#endif // _MSC_VER
 
     struct extra_integer_register
     {
@@ -72,7 +72,9 @@ namespace simd
         operator __m64 const & () const { return register_; }
         __m64 register_;
 
-    #ifdef _MSC_VER
+    #ifdef BOOST_MSVC
+        /// \note See the note for the native<> copy constructor.
+        ///                                   (10.10.2013.) (Domagoj Saric)
         extra_integer_register( __m64                  const & builtin ) : register_( builtin         ) {}
         extra_integer_register( extra_integer_register const & other   ) : register_( other.register_ ) {}
     #endif // _MSC_VER
@@ -119,11 +121,20 @@ namespace simd
 #endif // BOOST_SIMD_ARCH_X86_64
 
 
-    struct extra_registers_cleanup { ~extra_registers_cleanup() { _mm_empty(); } };
+    struct extra_registers_cleanup
+    {
+    #if defined( _MSC_VER ) && ( ( _MSC_VER == 1700 ) || ( _MSC_VER == 1800 ) )
+        /// \note Workaround for a MSVC11/12 codegen regression.
+        /// https://connect.microsoft.com/VisualStudio/feedback/details/804579/msvc-serious-sse-codegen-regression
+        ///                                   (10.10.2013.) (Domagoj Saric)
+        __declspec( noinline nothrow noalias )
+    #endif // MSVC12
+        ~extra_registers_cleanup() { _mm_empty(); }
+    };
 
-    #ifdef _MSC_VER
-        #pragma warning( pop )
-    #endif // _MSC_VER
+#ifdef _MSC_VER
+    #pragma warning( pop )
+#endif // _MSC_VER
 
 #else // BOOST_SIMD_HAS_MMX_SUPPORT
 
