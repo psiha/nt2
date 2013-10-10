@@ -626,8 +626,8 @@ namespace details
     /// transformations so even if NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP is defined
     /// it will partially transform it to pointer arithmetic (but not
     /// "ideally"). It is also able to use a few MMX "extra" registers without
-    /// shooting itself in the foot so we use pointer arithmetic approach with
-    /// MSVC for all targets.
+    /// shooting itself in the foot so we use the pointer arithmetic approach
+    /// with MSVC for all targets.
     ///                                       (31.10.2012.) (Domagoj Saric)
     /// \todo Investigate, configure and document for other x86/"poor man's ISA"
     /// compilers.
@@ -642,10 +642,6 @@ namespace details
 
     template <typename T>
     struct inplace_separated_context_t
-    #ifdef NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS
-        :
-        boost::simd::extra_registers_cleanup
-    #endif // NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS
     {
     public:
         typedef typename types<T>::scalar_t scalar_t;
@@ -759,6 +755,16 @@ namespace details
         template <unsigned int valid_bits>
         static void BOOST_FASTCALL scramble( vector_t * BOOST_DISPATCH_RESTRICT p_reals, vector_t * BOOST_DISPATCH_RESTRICT p_imags )
         {
+            /// \note The emms instruction seems rather costly so instead of
+            /// the previous 'safe(er)' approach of issuing an emms in the
+            /// inplace_separated_context_t destructor it is issued explicitly
+            /// only before calling function that we know the compiler
+            /// will/should/can use x87 instructions. This isn't quite the
+            /// happiest solution safety wise and would ideally require the
+            /// compiler to provide an intrinsic/pragma/something with which we
+            /// could tell it that it must not use x87 in a given function.
+            ///                               (10.10.2013.) (Domagoj Saric)
+            boost::simd::extra_registers_cleanup();
             scramble<valid_bits>( p_reals->data(), p_imags->data() );
         }
 
@@ -782,6 +788,10 @@ namespace details
             ///   - requires a special twiddle factor array (where the twiddles
             ///     also start from index 1)
             ///                               (18.07.2012.) (Domagoj Saric)
+            /// \note See the note above the first
+            /// boost::simd::extra_registers_cleanup instance.
+            ///                               (10.10.2013.) (Domagoj Saric)
+            boost::simd::extra_registers_cleanup();
             separate_a( p_reals, p_imags, twiddle_factors         <N          >         (), twiddle_sign_flipper, N );
           //separate_b( p_reals, p_imags, real_separation_twiddles<N, vector_t>::factors(), twiddle_sign_flipper, N );
         }
@@ -1065,6 +1075,11 @@ private:
             Context:: template separate<N>( this->context_parameter1_, this->context_parameter0_, Mzero<vector_t>() );
 
             transformer_t<Context>::operator()( typename Context::template complex_P<P>() );
+
+            /// \note See the note above the first
+            /// boost::simd::extra_registers_cleanup instance.
+            ///                               (10.10.2013.) (Domagoj Saric)
+            boost::simd::extra_registers_cleanup();
        }
     }; // backward_real_transformer_t
 
@@ -1137,14 +1152,14 @@ private:
         boost::control::switch_<void>
         (
             boost::simd::ilog2( size ),
-            boost::control::case_<fft_sizes_t>(transformer),
+            boost::control::case_<fft_sizes_t>( transformer ),
             details::assert_no_default_case<typename Trasformer::result_type>()
         );
     }
 }; // class static_fft
 
 #ifdef _MSC_VER
-#pragma warning( pop )
+    #pragma warning( pop )
 #endif
 
 template <typename T>
