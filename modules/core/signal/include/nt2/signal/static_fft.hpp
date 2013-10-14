@@ -1,7 +1,7 @@
 //==============================================================================
 //         Copyright 2003 - 2011   LASMEA UMR 6602 CNRS/Univ. Clermont II
 //         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//         Copyright 2012          Domagoj Saric, Little Endian Ltd.
+//         Copyright 2012 - 2013   Domagoj Saric, Little Endian Ltd.
 //
 //
 // "The FFT is one of the truly great computational developments of [the 20th]
@@ -18,7 +18,6 @@
 // "If you speed up any nontrivial algorithm by a factor of a million or so the
 // world will beat a path towards finding useful applications for it."
 // Numerical Recipes
-//
 //
 //          Distributed under the Boost Software License, Version 1.0.
 //                 See accompanying file LICENSE.txt or copy at
