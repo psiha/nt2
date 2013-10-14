@@ -307,6 +307,7 @@ namespace nt2
 //   http://assets.devx.com/goparallel/18027.pdf
 //   http://www.drdobbs.com/go-parallel/article/212903287
 // - cache usage/data access patterns
+//   http://www.infoq.com/news/2013/06/Native-Performance
 //   http://www.cs.ucc.ie/~da5/papers/cache-efficient-fft.ps.gz
 //   http://www.cse.yorku.ca/~aboelaze/publication/FFT06.pdf
 //   https://wiki.engr.illinois.edu/display/transformation/Patterns+for+Efficient+Data+Access
@@ -378,6 +379,7 @@ namespace nt2
 
 // http://llvm.org/bugs/show_bug.cgi?id=1821 "llvm spills like crazy on fft code"
 // http://llvm.org/bugs/show_bug.cgi?id=13292 "Excessive register spilling with large functions" (with FFT example)
+// https://connect.microsoft.com/VisualStudio/feedback/details/804579/msvc-serious-sse-codegen-regression
 
 /// \note
 ///   The Dr.Dobbs article seems to claim better performance than Intel MKL 7.0
