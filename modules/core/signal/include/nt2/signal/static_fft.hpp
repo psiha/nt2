@@ -96,11 +96,10 @@
 #endif // BOOST_ASSUME
 
 //------------------------------------------------------------------------------
+#include <nt2/signal/details/extra_registers.hpp>                 //...mrmlj...to be moved elsewhere...
+#include <nt2/signal/details/interleaved_data_transformation.hpp> //...^
+#include <nt2/signal/details/missing_functionality.hpp>           //...^
 #include <nt2/signal/details/twiddle_factors.hpp>
-
-#include <nt2/signal/extra_registers.hpp>                 //...mrmlj...to be moved elsewhere...
-#include <nt2/signal/interleaved_data_transformation.hpp> //...^
-#include <nt2/signal/missing_functionality.hpp>           //...^
 
 #include <boost/simd/include/functions/scalar/ffs.hpp>
 #include <boost/simd/include/functions/scalar/ilog2.hpp>

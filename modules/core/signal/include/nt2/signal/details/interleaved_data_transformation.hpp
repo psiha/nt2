@@ -10,7 +10,7 @@
 #ifndef INTERLEAVED_DATA_TRANSFORMATION_HPP_INCLUDED
 #define INTERLEAVED_DATA_TRANSFORMATION_HPP_INCLUDED
 //------------------------------------------------------------------------------
-#include <nt2/signal/missing_functionality.hpp>
+#include <nt2/signal/details/missing_functionality.hpp> //...mrmlj...to be moved elsewhere...
 
 #include <boost/simd/include/functions/simd/deinterleave_first.hpp>
 #include <boost/simd/include/functions/simd/deinterleave_second.hpp>

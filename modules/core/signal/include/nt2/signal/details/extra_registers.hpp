@@ -11,8 +11,13 @@
 #define EXTRA_REGISTERS_HPP_INCLUDED
 //------------------------------------------------------------------------------
 #include <boost/simd/sdk/config/arch.hpp>
+#include <boost/simd/sdk/simd/extensions.hpp>
 
 #include <boost/cstdint.hpp>
+
+#ifdef BOOST_SIMD_HAS_MMX_SUPPORT
+#include "mmintrin.h"
+#endif // BOOST_SIMD_HAS_MMX_SUPPORT
 //------------------------------------------------------------------------------
 namespace boost
 {
