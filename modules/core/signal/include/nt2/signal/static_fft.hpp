@@ -37,7 +37,7 @@
 #if defined( _MSC_VER )
 
     #define BOOST_NOTHROW_NOALIAS __declspec( nothrow noalias )
-    #if _MSC_VER >= 1800
+    #if ( _MSC_VER >= 1800 ) && ( defined( _M_X64 ) || ( _M_IX86_FP >= 2 ) )
         #define BOOST_FASTCALL __vectorcall
     #else
         #define BOOST_FASTCALL __fastcall
@@ -639,6 +639,12 @@ namespace details
         #define NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS
     #endif // "poor man's ISA" check
 
+    #if defined( BOOST_MSVC ) && defined( BOOST_SIMD_ARCH_X86_64 )
+        #pragma warning( push )
+        #pragma warning( disable : 4200 ) // Nonstandard extension used : zero-sized array in struct/union.
+        #pragma warning( disable : 4815 ) // Zero-sized array in stack object will have no elements.
+    #endif // MSVC 64 bit
+
     template <typename T>
     struct inplace_separated_context_t
     {
@@ -923,6 +929,10 @@ namespace details
     #endif
 #endif // NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
     }; // inplace_separated_context_t
+
+    #if defined( BOOST_MSVC ) && defined( BOOST_SIMD_ARCH_X86_64 )
+        #pragma warning( pop )
+    #endif // MSVC 64 bit
 
     #undef NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
     #undef NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS
@@ -1718,6 +1728,12 @@ namespace details
     // butterfly_loop
     ////////////////////////////////////////////////////////////////////////////
 
+    #if defined( BOOST_MSVC ) && defined( BOOST_SIMD_ARCH_X86_64 )
+        #pragma warning( push )
+        #pragma warning( disable : 4200 ) // Nonstandard extension used : zero-sized array in struct/union.
+        #pragma warning( disable : 4815 ) // Zero-sized array in stack object will have no elements.
+    #endif // MSVC 64 bit
+
     template <class Decimation, class Context>
     BOOST_NOINLINE
     void BOOST_FASTCALL butterfly_loop
@@ -1744,6 +1760,10 @@ namespace details
             ++context;
         } while ( context.remaining_iterations() );
     }
+
+    #if defined( BOOST_MSVC ) && defined( BOOST_SIMD_ARCH_X86_64 )
+        #pragma warning( pop )
+    #endif // MSVC 64 bit
 
 
     template <class Vector>
@@ -2324,6 +2344,12 @@ namespace details
     /// danielson_lanczos shared implementation and specializations
     ////////////////////////////////////////////////////////////////////////////
 
+    #if defined( BOOST_MSVC ) && defined( BOOST_SIMD_ARCH_X86_64 )
+        #pragma warning( push )
+        #pragma warning( disable : 4200 ) // Nonstandard extension used : zero-sized array in struct/union.
+        #pragma warning( disable : 4815 ) // Zero-sized array in stack object will have no elements.
+    #endif // MSVC 64 bit
+
     template <unsigned N, class Decimation, class Context, typename T, unsigned count_of_T>
     struct danielson_lanczos
     {
@@ -2361,8 +2387,11 @@ namespace details
                 N
             );
         }
-    };
+    }; // struct danielson_lanczos
 
+    #if defined( BOOST_MSVC ) && defined( BOOST_SIMD_ARCH_X86_64 )
+        #pragma warning( pop )
+    #endif // MSVC 64 bit
 
     ////////////////////////////////////////////////////////////////////////////
     /// danielson_lanczos specializations that unroll the butterfly loop body,
@@ -2392,7 +2421,7 @@ namespace details
             vector_t * BOOST_DISPATCH_RESTRICT const p_upper_i( &p_imags[ 1 ] );
             Decimation::dft_8_in_place( *p_lower_r, *p_lower_i, *p_upper_r, *p_upper_i );
         }
-    };
+    }; // struct danielson_lanczos<8, Decimation, Context, T, 4>
 
 
     template <class Context, typename T>
@@ -2501,7 +2530,7 @@ namespace details
 
         #endif // BOOST_SIMD_DETECTED
         }
-    };
+    }; // struct danielson_lanczos<16, dif, Context, T, 4>
 
 
     template <class Context, typename T>
@@ -2539,8 +2568,14 @@ namespace details
                 N
             );
         }
-    };
+    }; // struct danielson_lanczos<16, dit, Context, T, 4>
 
+
+    #if defined( BOOST_MSVC ) && defined( BOOST_SIMD_ARCH_X86_64 )
+        #pragma warning( push )
+        #pragma warning( disable : 4200 ) // Nonstandard extension used : zero-sized array in struct/union.
+        #pragma warning( disable : 4815 ) // Zero-sized array in stack object will have no elements.
+    #endif // MSVC 64 bit
 
     template <class Decimation, class Context, typename T>
     struct danielson_lanczos<32, Decimation, Context, T, 4>
@@ -2601,7 +2636,11 @@ namespace details
                 *p_w
             );
         }
-    };
+    }; // struct danielson_lanczos<32, Decimation, Context, T, 4>
+
+    #if defined( BOOST_MSVC ) && defined( BOOST_SIMD_ARCH_X86_64 )
+        #pragma warning( pop )
+    #endif // MSVC 64 bit
 
 
     ////////////////////////////////////////////////////////////////////////////
@@ -2637,7 +2676,7 @@ namespace details
     {
         static void apply( typename Context::parameter0_t, typename Context::parameter1_t )
         {
-            BOOST_STATIC_ASSERT_MSG( sizeof(Decimation) && false, "Recursion should have been terminated before." );
+            BOOST_STATIC_ASSERT_MSG( sizeof( Decimation ) && false, "Recursion should have been terminated before." );
         }
     };
 } // namespace details
