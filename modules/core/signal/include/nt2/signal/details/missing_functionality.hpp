@@ -103,25 +103,24 @@ namespace ext
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::complement_ , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
-      typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL(1) { _ivec const result( ~( (_ivec const &)a0() ) ); return (result_type const &)result; }
+    typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL(1) { _ivec const result( ~( (_ivec const &)a0() ) ); return (result_type const &)result; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::make_       , boost::simd::tag::cpu_, (A0), ((target_<simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
   {
-      BOOST_SIMD_MAKE_BODY(4) { return (typename result_type::native_type){ a0, a1, a2, a3 }; }
+    BOOST_SIMD_MAKE_BODY(4) { return (typename result_type::native_type){ a0, a1, a2, a3 }; }
   };
 #endif // GCC 4.5+
 
 #if ( __GNUC_MINOR__ >= 6 ) || defined( __clang__ )
+  // shifts by scalar
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::shift_left_ , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
-      typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() << a1(); }
+    typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() << a1(); }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::shift_right_, boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
-      typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() >> a1(); }
+    typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() >> a1(); }
   };
-
-  // shifts by scalar
 #endif // GCC 4.6+
 
 #if ( __GNUC_MINOR__ >= 7 ) || defined( __clang__ )
@@ -129,13 +128,50 @@ namespace ext
   // splat
 #endif // GCC 4.7+
 
-#if ( __GNUC_MINOR__ >= 8 ) || defined( __clang__ )
+#if ( __GNUC_MINOR__ >= 8 ) || ( defined( __clang__ ) && !defined( __arm__ ) )
+  // subscript access
   /// \note GCC should support subscript access since version 4.6 but they
   /// "forgot" to add this to the C++ frontend:
   /// http://gcc.gnu.org/bugzilla/show_bug.cgi?id=51033
   /// http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53094
   ///                                         (17.12.2012.) (Domagoj Saric)
-  // subscript access
+  /// \note Clang has subscript operator support but not for ARM NEON. It does
+  /// not seem to work even when the __vector_size__ syntax is used.
+  /// http://clang.llvm.org/docs/LanguageExtensions.html#vectors-and-extended-vectors
+  /// http://clang-developers.42468.n3.nabble.com/Native-vectors-types-GCC-vs-NEON-td4035283.html
+  ///                                         (28.10.2013.) (Domagoj Saric)
+
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >) )
+  {
+    typedef float result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<uint32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >) )
+  {
+    typedef unsigned int result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<int32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >) )
+  {
+    typedef int result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
+  };
+
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
+  {
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
+  {
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
+  {
+    typedef void result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
+  };
 #endif // GCC 4.8+
 
 #endif // __GNUC__
@@ -168,7 +204,7 @@ namespace ext
     //...mrmlj...(GCC 4.6 does but does not quite generate optimal code for
     //...mrmlj..."N-element vectors/structs")
     //...mrmlj...http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48941
-    result_type operator()(float32x4_t const  a0, float32x4_t const a1) const { return vuzpq_f32( a0, a1 ).val[ 0 ]; }
+    result_type operator()(float32x4_t const a0, float32x4_t const a1) const { return vuzpq_f32( a0, a1 ).val[ 0 ]; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::deinterleave_second_, boost::simd::tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
   {
@@ -258,36 +294,6 @@ namespace ext
 #endif // __GNUC__ && !__clang__
 
 #endif // __ARM_NEON__
-
-#if defined( __clang__ )
-  //...mrmlj...clang has subscript operator support...
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION
-  (
-    boost::simd::tag::extract_,
-    boost::simd::tag::cpu_,
-    (A0)(A1),
-    ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >)
-  )
-  {
-    typedef float result_type;
-    result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
-  };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
-  {
-    typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
-  };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
-  {
-    typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
-  };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
-  {
-    typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, int const a2 ) const { a1()[ a2 ] = a0; }
-  };
-#endif // __clang__
 
 //------------------------------------------------------------------------------
 } // namespace ext
