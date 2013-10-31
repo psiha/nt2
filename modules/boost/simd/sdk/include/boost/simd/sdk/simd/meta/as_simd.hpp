@@ -1,7 +1,7 @@
 //==============================================================================
 //         Copyright 2003 - 2012   LASMEA UMR 6602 CNRS/Univ. Clermont II
 //         Copyright 2009 - 2012   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//         Copyright 2012          Domagoj Saric, Little Endian Ltd.
+//         Copyright 2012 - 2013   Domagoj Saric, Little Endian Ltd.
 //
 //          Distributed under the Boost Software License, Version 1.0.
 //               See accompanying file LICENSE.txt or copy at
@@ -66,9 +66,9 @@ namespace boost { namespace simd { namespace meta
 
 template <typename T> struct builtin_gcc_type { typedef T type; };
 
-#if defined( __ARM_NEON__ )
+#if defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 )
     //...mrmlj...gcc generates noticeably slower code when unsigned is used
-    //...mrmlj...in order to remove the casts from the affected instrisics
+    //...mrmlj...in order to remove the casts from the affected intrinsics
     //...mrmlj...calls...
     template <std::size_t N, class T>
     struct as_simd<logical<T>, tag::simd_emulation_<N> > : as_simd< typename dispatch::meta::as_integer<T>::type, tag::simd_emulation_<N> > {};
@@ -93,7 +93,7 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
         template <> struct builtin_gcc_type<boost::simd::uint64_t> { typedef __builtin_neon_udi type; };
         template <> struct builtin_gcc_type<float                > { typedef __builtin_neon_sf  type; };
     #endif // GCC/Clang
-#elif defined( __arm__ ) // no NEON
+#elif defined( BOOST_SIMD_ARCH_ARM ) // no NEON
     template <std::size_t N, class T>
     struct as_simd<logical<T>, tag::simd_emulation_<N> > : as_simd< typename dispatch::meta::as_integer<T, unsigned>::type, tag::simd_emulation_<N> > {};
 #endif // __ARM_NEON__
@@ -114,7 +114,7 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
   /**/
 
 //...mrmlj...clang chokes on doubles with neon...
-#if defined( __clang__ ) && defined( __ARM_NEON__ )
+#if defined( __clang__ ) && ( defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 ) )
   #define M1(z,n,t) BOOST_PP_SEQ_FOR_EACH(M0, n, (boost::simd::uint64_t)(boost::simd::int64_t)(boost::simd::uint32_t)(boost::simd::int32_t)(float)(boost::simd::uint16_t)(boost::simd::int16_t)(boost::simd::uint8_t)(boost::simd::int8_t))
 // GCC bug with 64-bit integer types on i686
 // Also affects GCC 4.8.x on x86-64
