@@ -46,23 +46,28 @@ namespace boost { namespace simd { namespace meta
     typedef boost::simd::aligned_array<T, N / sizeof(T)> type;
   };
 
+
+#if defined( __GNUC__ ) && !defined( BOOST_SIMD_DETECTED )
+    #define BOOST_SIMD_NATIVE_GCC
+#endif // __GNUC__
+
 //...mrmlj...when using GCC/Clang native vectors the vectors for logical seem to
 //...mrmlj...have to be of the same size as their corresponding 'value'/number
 //...mrmlj...vectors so the default logical<T> implementation has to be skipped
-#if !defined( __GNUC__ ) || defined( BOOST_SIMD_DETECTED )
+#ifndef BOOST_SIMD_NATIVE_GCC
   template<std::size_t N, class T>
   struct as_simd<logical<T>, tag::simd_emulation_<N> >
        : as_simd<T, tag::simd_emulation_<N> >
   {
   };
-#endif // !__GNUC__ || BOOST_SIMD_DETECTED
+#endif // BOOST_SIMD_NATIVE_GCC
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // GCC/Clang native vector support
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifdef __GNUC__
+#ifdef BOOST_SIMD_NATIVE_GCC
 
 template <typename T> struct builtin_gcc_type { typedef T type; };
 
@@ -74,13 +79,13 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
     struct as_simd<logical<T>, tag::simd_emulation_<N> > : as_simd< typename dispatch::meta::as_integer<T>::type, tag::simd_emulation_<N> > {};
 
     #if defined( __clang__ )
-        template <> struct as_simd<double, tag::simd_emulation_<16> > { typedef double type __attribute__((__vector_size__(16))); };
-        #define BOOST_SIMD_AUX_BUILTIN_VECTOR( scalar_t, sizeof_vector )                                 \
-            BOOST_PP_IF                                                                                  \
-            (                                                                                            \
-                BOOST_PP_EQUAL( sizeof_vector, 16 ),                                                     \
-                typedef __attribute__((neon_vector_type(sizeof_vector/sizeof(scalar_t)))) scalar_t type, \
-                typedef scalar_t type __attribute__((__vector_size__(sizeof_vector)))                    \
+        template <> struct as_simd<double, tag::simd_emulation_<16> > { typedef double type __attribute__((vector_size(16), may_alias)); };
+        #define BOOST_SIMD_AUX_BUILTIN_VECTOR( scalar_t, sizeof_vector )                                            \
+            BOOST_PP_IF                                                                                             \
+            (                                                                                                       \
+                BOOST_PP_EQUAL( sizeof_vector, 16 ),                                                                \
+                typedef __attribute__((neon_vector_type(sizeof_vector/sizeof(scalar_t)), may_alias)) scalar_t type, \
+                typedef scalar_t type __attribute__((vector_size(sizeof_vector), may_alias))                        \
             )
     #else // GCC
         template <> struct builtin_gcc_type<boost::simd::int8_t  > { typedef __builtin_neon_qi  type; };
@@ -93,15 +98,13 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
         template <> struct builtin_gcc_type<boost::simd::uint64_t> { typedef __builtin_neon_udi type; };
         template <> struct builtin_gcc_type<float                > { typedef __builtin_neon_sf  type; };
     #endif // GCC/Clang
-#elif defined( BOOST_SIMD_ARCH_ARM ) // no NEON
+#else // generic
     template <std::size_t N, class T>
     struct as_simd<logical<T>, tag::simd_emulation_<N> > : as_simd< typename dispatch::meta::as_integer<T, unsigned>::type, tag::simd_emulation_<N> > {};
-#endif // __ARM_NEON__
 
-#ifndef BOOST_SIMD_AUX_BUILTIN_VECTOR
     #define BOOST_SIMD_AUX_BUILTIN_VECTOR( scalar_t, sizeof_vector )  \
-        typedef typename builtin_gcc_type<scalar_t>::type type __attribute__((__vector_size__(sizeof_vector)));
-#endif // BOOST_SIMD_AUX_BUILTIN_VECTOR
+        typedef typename builtin_gcc_type<scalar_t>::type type __attribute__((vector_size(sizeof_vector), may_alias));
+#endif // target CPU
 
 
   // Some GCC and Clang versions require full specializations
@@ -144,7 +147,7 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
 
   #undef BOOST_SIMD_AUX_BUILTIN_VECTOR
 
-#endif // __GNUC__ (GCC/Clang native vector support)
+#endif // BOOST_SIMD_NATIVE_GCC
 } } }
 
 #endif
