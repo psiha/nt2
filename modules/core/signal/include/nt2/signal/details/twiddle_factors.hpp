@@ -124,7 +124,7 @@ namespace detail
     struct twiddle_calculator_same_type
     {
         template <typename Vector>
-        static BOOST_FORCEINLINE Vector generate_input( int const index, long double const omega_scale, long double const N )
+        static BOOST_FORCEINLINE BOOST_COLD Vector generate_input( int const index, long double const omega_scale, long double const N )
         {
             long double const omega( omega_scale * Impl::full_circle() / N );
 
@@ -142,21 +142,21 @@ namespace detail
     {
         static long double full_circle() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L; }
         template <typename Vector>
-        static BOOST_FORCEINLINE Vector sincos( Vector const & input, Vector & cosine ) { return sinecosine<small_>( input, cosine ); }
+        static BOOST_FORCEINLINE BOOST_COLD Vector sincos( Vector const & input, Vector & cosine ) { return sinecosine<small_>( input, cosine ); }
     }; // struct radians
 
     struct degrees : twiddle_calculator_same_type<degrees>
     {
         static long double full_circle() { return 2 * 180; }
         template <typename Vector>
-        static BOOST_FORCEINLINE Vector sincos( Vector const & input, Vector & cosine ) { return sincosd( input, cosine ); }
+        static BOOST_FORCEINLINE BOOST_COLD Vector sincos( Vector const & input, Vector & cosine ) { return sincosd( input, cosine ); }
     }; // struct degrees
 
     struct pies : twiddle_calculator_same_type<pies>
     {
         static long double full_circle() { return 2 * 1; }
         template <typename Vector>
-        static BOOST_FORCEINLINE Vector sincos( Vector const & input, Vector & cosine ) { return sincospi( input, cosine ); }
+        static BOOST_FORCEINLINE BOOST_COLD Vector sincos( Vector const & input, Vector & cosine ) { return sincospi( input, cosine ); }
     }; // struct pies
 
     struct pies_scalar_upgraded_type : twiddle_calculator_scalar
@@ -164,7 +164,7 @@ namespace detail
         static long double full_circle() { return 2 * 1; }
 
         template <typename Vector>
-        static BOOST_FORCEINLINE Vector sincos( input_t const & input, Vector & cosine )
+        static BOOST_FORCEINLINE BOOST_COLD Vector sincos( input_t const & input, Vector & cosine )
         {
             typedef typename Vector::value_type scalar_t;
 
@@ -196,7 +196,7 @@ namespace detail
         static long double full_circle() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L; }
 
         template <typename Vector>
-        static BOOST_FORCEINLINE Vector sincos( input_t const & input, Vector & cosine )
+        static BOOST_FORCEINLINE BOOST_COLD Vector sincos( input_t const & input, Vector & cosine )
         {
             Vector sine;
 
@@ -275,7 +275,7 @@ namespace detail
     ///                                       (05.06.2012.) (Domagoj Saric)
     template <typename Vector>
     BOOST_NOINLINE
-    void BOOST_FASTCALL calculate_twiddles
+    void BOOST_FASTCALL BOOST_COLD calculate_twiddles
     (
         /// \note Packing these parameters into static const structs (as they
         /// are all known at compile time) proved fruitless because MSVC10 would
@@ -344,7 +344,7 @@ namespace detail
     template <typename Vector, unsigned N>
     struct twiddle_holder
     {
-        twiddle_holder()
+        BOOST_COLD twiddle_holder()
         {
             calculate_twiddles<Vector>( &factors.front().w0, N, 2, 1, 0 );
             calculate_twiddles<Vector>( &factors.front().w3, N, 2, 3, 0 );
@@ -364,7 +364,7 @@ namespace detail
     template <typename Vector, unsigned N>
     struct real_separation_twiddles_holder
     {
-        real_separation_twiddles_holder()
+        BOOST_COLD real_separation_twiddles_holder()
         {
             calculate_twiddles<Vector>( &factors.front(), N, 1, 1, 1 );
         }

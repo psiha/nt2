@@ -33,68 +33,6 @@
     #pragma GCC push_options
     #pragma GCC optimize ( "fast-math" )
 #endif // compiler
-
-#if defined( _MSC_VER )
-
-    #define BOOST_NOTHROW_NOALIAS __declspec( nothrow noalias )
-    #if ( _MSC_VER >= 1800 ) && ( defined( _M_X64 ) || ( _M_IX86_FP >= 2 ) )
-        #define BOOST_FASTCALL __vectorcall
-    #else
-        #define BOOST_FASTCALL __fastcall
-    #endif // _MSC_VER
-    #define BOOST_UNREACHABLE_CODE()  BOOST_ASSERT_MSG( false    , "This code should not be reached." ); __assume( false     )
-    #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken."               ); __assume( condition )
-
-#elif defined( __GNUC__ )
-
-    /// \note The 'pure' (and especially 'const') attribute(s) seem to be too
-    /// strict to mimic the MSVC 'noalias' attribute (which allows first level
-    /// indirections).
-    ///                                       (09.07.2012.) (Domagoj Saric)
-    #define BOOST_NOTHROW_NOALIAS __attribute__(( nothrow ))
-    #if defined( BOOST_SIMD_ARCH_X86 ) && !defined( BOOST_SIMD_ARCH_X86_64 )
-        #if defined( BOOST_SIMD_HAS_SSE_SUPPORT ) && !defined( __clang__ )
-            #define BOOST_FASTCALL __attribute__(( regparm( 3 ), hot, sseregparm ))
-        #else
-            #define BOOST_FASTCALL __attribute__(( regparm( 3 ), hot ))
-        #endif // __clang__
-    #endif // BOOST_SIMD_ARCH_X86
-
-    // http://en.chys.info/2010/07/counterpart-of-assume-in-gcc
-    // http://nondot.org/sabre/LLVMNotes/BuiltinUnreachable.txt
-    #if ( __clang_major__ >= 2 ) || ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) >= 45 )
-        #define BOOST_UNREACHABLE_CODE()  BOOST_ASSERT_MSG( false    , "This code should not be reached." ); __builtin_unreachable()
-        #if defined( __clang__ ) || ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) < 46 ) || ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) > 47 )
-            // Broken/pessimization in GCC 4.6:
-            //  https://bugs.launchpad.net/gcc-linaro/+bug/1020601
-            //  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=50385
-            //  http://gcc.gnu.org/ml/gcc-patches/2012-07/msg00254.html
-            //  http://gcc.gnu.org/bugzilla/show_bug.cgi?id=49054
-            #define BOOST_ASSUME( condition ) BOOST_ASSERT_MSG( condition, "Assumption broken." ); do { if ( !( condition ) ) __builtin_unreachable(); } while ( 0 )
-        #endif
-    #endif
-
-#endif
-
-#ifndef BOOST_NOTHROW_NOALIAS
-    #define BOOST_NOTHROW_NOALIAS
-#endif // BOOST_NOTHROW_NOALIAS
-
-#ifndef BOOST_FASTCALL
-    #define BOOST_FASTCALL
-#endif // BOOST_FASTCALL
-
-#ifndef BOOST_UNREACHABLE_CODE
-    #define BOOST_UNREACHABLE_CODE() BOOST_ASSERT_MSG( false, "This code should not be reached." )
-#endif // BOOST_UNREACHABLE_CODE
-
-/// \note We want assume to have verify semantics (i.e. the condition expression
-/// should be evaluated in all builds.
-///                                           (13.11.2012.) (Domagoj Saric)
-#ifndef BOOST_ASSUME
-    #define BOOST_ASSUME( condition ) BOOST_VERIFY( condition && "Assumption broken." )
-#endif // BOOST_ASSUME
-
 //------------------------------------------------------------------------------
 #include <nt2/signal/details/missing_functionality.hpp>           //...mrmlj...to be moved elsewhere...
 #include <nt2/signal/details/extra_registers.hpp>                 //...^
