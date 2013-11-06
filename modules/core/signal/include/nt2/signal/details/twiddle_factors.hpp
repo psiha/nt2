@@ -136,28 +136,28 @@ namespace detail
             BOOST_ASSERT( result[ Vector::static_size - 1 ] <= omega_scale * Impl::full_circle() / 4 );
             return result;
         }
-    };
+    }; // struct twiddle_calculator_same_type
 
     struct radians : twiddle_calculator_same_type<radians>
     {
         static long double full_circle() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L; }
         template <typename Vector>
         static BOOST_FORCEINLINE Vector sincos( Vector const & input, Vector & cosine ) { return sinecosine<small_>( input, cosine ); }
-    };
+    }; // struct radians
 
     struct degrees : twiddle_calculator_same_type<degrees>
     {
         static long double full_circle() { return 2 * 180; }
         template <typename Vector>
         static BOOST_FORCEINLINE Vector sincos( Vector const & input, Vector & cosine ) { return sincosd( input, cosine ); }
-    };
+    }; // struct degrees
 
     struct pies : twiddle_calculator_same_type<pies>
     {
         static long double full_circle() { return 2 * 1; }
         template <typename Vector>
         static BOOST_FORCEINLINE Vector sincos( Vector const & input, Vector & cosine ) { return sincospi( input, cosine ); }
-    };
+    }; // struct pies
 
     struct pies_scalar_upgraded_type : twiddle_calculator_scalar
     {
@@ -189,7 +189,7 @@ namespace detail
 
             return sine;
         }
-    };
+    }; // struct pies_scalar_upgraded_type
 
     struct hardware_or_crt : twiddle_calculator_scalar
     {
