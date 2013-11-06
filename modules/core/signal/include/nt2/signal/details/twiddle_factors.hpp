@@ -322,7 +322,14 @@ namespace detail
             /// pies
             /// pies_scalar_upgraded_type (this requires further investigation).
             ///                               (20.07.2012.) (Domagoj Saric)
-            typedef pies impl;
+            /// \note Clang 3.3 generates wrong code/results/factors with
+            /// -ffast-math and emulation (tested with x86 and ARM CPUs).
+            ///                               (06.11.2013.) (Domagoj Saric)
+        #if defined( __FAST_MATH__ ) && !defined( BOOST_SIMD_DETECTED )
+            typedef hardware_or_crt impl;
+        #else
+            typedef pies            impl;
+        #endif // __FAST_MATH__
 
             p_w->wi = impl::sincos( impl::generate_input<Vector>( i, omega_scale, N ), p_w->wr ) ^ Mzero<Vector>();
 
