@@ -96,9 +96,9 @@
 #endif // BOOST_ASSUME
 
 //------------------------------------------------------------------------------
-#include <nt2/signal/details/extra_registers.hpp>                 //...mrmlj...to be moved elsewhere...
+#include <nt2/signal/details/missing_functionality.hpp>           //...mrmlj...to be moved elsewhere...
+#include <nt2/signal/details/extra_registers.hpp>                 //...^
 #include <nt2/signal/details/interleaved_data_transformation.hpp> //...^
-#include <nt2/signal/details/missing_functionality.hpp>           //...^
 #include <nt2/signal/details/twiddle_factors.hpp>
 
 #include <boost/simd/include/functions/scalar/ffs.hpp>
@@ -119,18 +119,22 @@
 #include <boost/simd/constant/constants/half.hpp>
 #include <boost/simd/constant/constants/mzero.hpp>
 #include <boost/simd/constant/constants/zero.hpp>
-#include <boost/simd/swar/functions/details/shuffle.hpp>
+#include <boost/simd/swar/functions/details/shuffle.hpp> //...mrmlj...should be ported to use the public shuffle...
 
 
 /// \note control/switch.hpp needs to be included before control/case.hpp
 /// because case.hpp uses the default_construct struct template (from
 /// switch.hpp) without forward declaring it.
 ///                                           (09.10.2012.) (Domagoj Saric)
-#pragma warning( push )
-#pragma warning( disable : 4512 ) // Assignment operator could not be generated.
+#ifdef _MSC_VER
+    #pragma warning( push )
+    #pragma warning( disable : 4512 ) // Assignment operator could not be generated.
+#endif // _MSC_VER
 #include <boost/control/switch.hpp>
 #include <boost/control/case.hpp>
-#pragma warning( pop )
+#ifdef _MSC_VER
+    #pragma warning( pop )
+#endif // _MSC_VER
 
 #include <boost/assert.hpp>
 #include <boost/cstdint.hpp>
@@ -404,38 +408,53 @@ namespace details
     // --------------
     //
     ////////////////////////////////////////////////////////////////////////////
-    /// \note sign_flipper() returns a restricted pointer (instead of a
-    /// reference or simply by value) in order to make it easier for the
-    /// compiler to (re)use the constant directly from its static location
-    /// instead of bouncing it (or some other intermediate value) onto the
-    /// stack. This becomes important in tight register allocation situations
-    /// (e.g. inlined DFT16 and DFT8 routines in 32bit x86 builds).
+    /// \note sign_flipper() returns a reference (instead of  by value) in order
+    /// to make it easier for the compiler to (re)use the constant directly from
+    /// its static location instead of bouncing it (or some other intermediate
+    /// value) onto the stack. This becomes important in tight register
+    /// allocation situations (e.g. inlined DFT16 and DFT8 routines in 32bit x86
+    /// builds).
     ///                                       (06.06.2012.) (Domagoj Saric)
     ////////////////////////////////////////////////////////////////////////////
 
-    template <typename FloatingPointType> struct integer_placeholder;
-    template <                          > struct integer_placeholder<float > { typedef boost::int32_t type; };
-    template <                          > struct integer_placeholder<double> { typedef boost::int64_t type; };
-#ifdef _MSC_VER
-    template <                          > struct integer_placeholder<long double> : integer_placeholder<double> {};
-#endif // _MSC_VER
+    template <typename T, bool e0, bool e1, bool e2, bool e3>
+    struct sign_flipper_aux;
 
-    template <typename T, T e0, T e1, T e2, T e3>
-    BOOST_FORCEINLINE
-    T const (* BOOST_DISPATCH_RESTRICT sign_flipper_aux())[ 4 ]
+    template <bool e0, bool e1, bool e2, bool e3>
+    struct sign_flipper_aux<float, e0, e1, e2, e3>
     {
-        unsigned int const mzero_shift( sizeof( T ) * 8 - 1 );
-        unsigned int const cardinal   ( 4                   );
+        typedef typename boost::simd::native<boost::int32_t, BOOST_SIMD_DEFAULT_EXTENSION>::native_type flipper_bits_t;
+        static flipper_bits_t const value;
+    };
+    template <bool e0, bool e1, bool e2, bool e3>
+    typename sign_flipper_aux<float, e0, e1, e2, e3>::flipper_bits_t const
+             sign_flipper_aux<float, e0, e1, e2, e3>::value( boost::simd::make<boost::simd::native<boost::int32_t, BOOST_SIMD_DEFAULT_EXTENSION>>( e0 * 0x80000000, e1 * 0x80000000, e2 * 0x80000000, e3 * 0x80000000 ) );
 
-        static T const BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT )
-            flipper[ cardinal ] = { e0 << mzero_shift, e1 << mzero_shift, e2 << mzero_shift, e3 << mzero_shift };
-        return &flipper;
-    }
+#ifdef BOOST_SIMD_HAS_AVX_SUPPORT
+    template <bool e0, bool e1, bool e2, bool e3>
+    struct sign_flipper_aux<double, e0, e1, e2, e3>
+    {
+        typedef typename boost::simd::native<boost::int64_t, BOOST_SIMD_DEFAULT_EXTENSION>::native_type flipper_bits_t;
+        static flipper_bits_t const value;
+    };
+    template <bool e0, bool e1, bool e2, bool e3>
+    typename sign_flipper_aux<double, e0, e1, e2, e3>::flipper_bits_t const
+             sign_flipper_aux<double, e0, e1, e2, e3>::value( boost::simd::make<boost::simd::native<boost::int64_t, BOOST_SIMD_DEFAULT_EXTENSION>>( e0 * 0x8000000000000000ULL, e1 * 0x8000000000000000ULL, e2 * 0x8000000000000000ULL, e3 * 0x8000000000000000ULL ) );
+
+#ifdef _MSC_VER
+    template <bool e0, bool e1, bool e2, bool e3>
+    struct sign_flipper_aux<long double, e0, e1, e2, e3> : sign_flipper_aux<double, e0, e1, e2, e3>  {};
+#endif // _MSC_VER
+#endif // BOOST_SIMD_HAS_AVX_SUPPORT
 
     template <typename Vector, bool e0, bool e1, bool e2, bool e3>
     BOOST_FORCEINLINE
     Vector const * sign_flipper()
     {
+        /// \note Using an auxiliary function to generate less symbols and
+        /// shorter symbol names (it depends on less type information).
+        ///                                   (09.10.2012.) (Domagoj Saric)
+
         /// \note MSVC10 sometimes generates wrong constants (especially when
         /// the reversed set function (_mm_setr_ps) is used.
         ///                                   (08.03.2012.) (Domagoj Saric)
@@ -447,13 +466,11 @@ namespace details
         /// static flipper_vector_t::native_type const flipper = { _mm_castsi128_ps( _mm_setr_epi32( e0 * mzero, e1 * mzero, e2 * mzero, e3 * mzero ) ) };
         ///                                   (12.06.2012.) (Domagoj Saric)
 
-        /// \note Using an auxiliary function to generate less symbols and
-        /// shorter symbol names (it depends on less type information).
-        ///                                   (09.10.2012.) (Domagoj Saric)
+        BOOST_STATIC_ASSERT_MSG( Vector::static_size == 4, "Temporary FFT limitation: requires 4 element vectors." );
 
         return reinterpret_cast<Vector const * BOOST_DISPATCH_RESTRICT>
         (
-            sign_flipper_aux<typename integer_placeholder<typename Vector::value_type>::type, e0, e1, e2, e3>()
+            &sign_flipper_aux<typename Vector::value_type, e0, e1, e2, e3>::value
         );
     }
 
@@ -978,7 +995,7 @@ private:
     typedef
         boost::mpl::range_c
         <
-            std::size_t,
+            unsigned int,
             boost::static_log2<MinimumSize>::value,
             boost::static_log2<MaximumSize>::value + 1
         > fft_sizes_t;
@@ -1006,8 +1023,8 @@ private:
         template <typename FFTSizeExponent>
         result_type operator()( FFTSizeExponent ) const
         {
-            static std::size_t const P = FFTSizeExponent::value;
-            static std::size_t const N = 1 << P;
+            static unsigned int const P = FFTSizeExponent::value;
+            static unsigned int const N = 1 << P;
 
             using namespace details;
 
@@ -1048,8 +1065,8 @@ private:
         template <typename FFTSizeExponent>
         void operator()( FFTSizeExponent ) const
         {
-            static std::size_t const P = FFTSizeExponent::value;
-            static std::size_t const N = 1 << P;
+            static unsigned int const P = FFTSizeExponent::value;
+            static unsigned int const N = 1 << P;
 
             transformer_t<Context>::operator()( typename Context::template complex_P<P>() );
 
@@ -1076,8 +1093,8 @@ private:
         template <typename FFTSizeExponent>
         void operator()( FFTSizeExponent ) const
         {
-            static std::size_t const P = FFTSizeExponent::value;
-            static std::size_t const N = 1 << P;
+            static unsigned int const P = FFTSizeExponent::value;
+            static unsigned int const N = 1 << P;
 
             /// \note The "switch real and imaginary parts" trick does not work
             /// with the separate() procedure so we must "swap back" the data
@@ -1095,13 +1112,13 @@ private:
     }; // backward_real_transformer_t
 
 public:
-    static void forward_transform( T * const p_real_data, T * const p_imaginary_data, std::size_t const size )
+    static void forward_transform( T * const p_real_data, T * const p_imaginary_data, unsigned int const size )
     {
         typedef details::inplace_separated_context_t<T> context_t;
         do_transform( transformer_t<context_t>( details::as_vector( p_real_data ), details::as_vector( p_imaginary_data ) ), size );
     }
 
-    static void inverse_transform( T * const p_real_data, T * const p_imaginary_data, std::size_t const size )
+    static void inverse_transform( T * const p_real_data, T * const p_imaginary_data, unsigned int const size )
     {
         /// \note The inverse transform is implemented with the "switch real and
         /// imaginary parts" trick. This enables the same code to be used for
@@ -1117,7 +1134,7 @@ public:
         T const * const real_time_data,
         T       * const real_frequency_data,
         T       * const imag_frequency_data,
-        std::size_t const size
+        unsigned int const size
     )
     {
         // Separate ("deinterleave") into even and odd parts ("emulated" complex
@@ -1139,7 +1156,7 @@ public:
         T /*const*/ * const real_frequency_data,
         T /*const*/ * const imag_frequency_data,
         T           * const real_time_data,
-        std::size_t const size
+        unsigned int const size
     )
     {
         typedef details::inplace_separated_context_t<T> context_t;
@@ -1158,11 +1175,11 @@ public:
 
 private:
     template <class Trasformer>
-    static void do_transform( Trasformer const & transformer, std::size_t const size )
+    static void do_transform( Trasformer const & transformer, unsigned int const size )
     {
-        boost::control::switch_<void>
+        boost::control::switch_<void, boost::uint_fast8_t>
         (
-            boost::simd::ilog2( size ),
+            static_cast<boost::uint_fast8_t>( boost::simd::ilog2( size ) ),
             boost::control::case_<fft_sizes_t>( transformer ),
             details::assert_no_default_case<typename Trasformer::result_type>()
         );
@@ -1174,15 +1191,15 @@ private:
 #endif
 
 template <typename T>
-T complex_fft_normalization_factor( std::size_t const size )
+T complex_fft_normalization_factor( unsigned int const size )
 {
-    return 1 / static_cast<T>( static_cast<std::ptrdiff_t>( size ) );
+    return 1 / static_cast<T>( static_cast<signed int>( size ) );
 }
 
 template <typename T>
-T real_fft_normalization_factor( std::size_t const size )
+T real_fft_normalization_factor( unsigned int const size )
 {
-    return 1 / static_cast<T>( static_cast<std::ptrdiff_t>( 2 * size ) );
+    return 1 / static_cast<T>( static_cast<signed int>( 2 * size ) );
 }
 
 
