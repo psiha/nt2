@@ -29,6 +29,7 @@
 #include <boost/simd/operator/functions/plus.hpp>
 #include <boost/simd/operator/functions/shift_left.hpp>
 #include <boost/simd/operator/functions/shift_right.hpp>
+#include <boost/simd/operator/functions/splat.hpp>
 #include <boost/simd/operator/functions/unary_minus.hpp>
 #include <boost/simd/swar/functions/details/shuffle.hpp>
 #include <boost/simd/swar/functions/deinterleave_first.hpp>
@@ -65,49 +66,49 @@ namespace ext
 #if ( __GNUC_MINOR__ >= 5 ) || defined( __clang__ )
   #define BOOST_SIMD_HAS_VECTORIZABLE_EMULATION
 
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::minus_      , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::minus_      , tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() - a1(); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::plus_       , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::plus_       , tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() + a1(); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::multiplies_ , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::multiplies_ , tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() * a1(); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::divides_    , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::divides_    , tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() / a1(); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::modulo_     , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::modulo_     , tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() % a1(); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::unary_minus_, boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::unary_minus_, tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL(1) { return -a0(); }
   };
   //...mrmlj....
   typedef native<unsigned int, BOOST_SIMD_DEFAULT_EXTENSION>::native_type _ivec;
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_and_, boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_and_, tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { _ivec const result( (_ivec const &)a0() & (_ivec const &)a1() ); return (result_type const &)result; }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_or_ , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_or_ , tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { _ivec const result( (_ivec const &)a0() | (_ivec const &)a1() ); return (result_type const &)result; }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_xor_, boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::bitwise_xor_, tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { _ivec const result( (_ivec const &)a0() ^ (_ivec const &)a1() ); return (result_type const &)result; }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::complement_ , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::complement_ , tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL(1) { _ivec const result( ~( (_ivec const &)a0() ) ); return (result_type const &)result; }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::make_       , boost::simd::tag::cpu_, (A0), ((target_<simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::make_       , tag::cpu_, (A0), ((target_<simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
   {
     BOOST_SIMD_MAKE_BODY(4) { return (typename result_type::native_type){ a0, a1, a2, a3 }; }
   };
@@ -115,11 +116,11 @@ namespace ext
 
 #if ( __GNUC_MINOR__ >= 6 ) || defined( __clang__ )
   // shifts by scalar
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::shift_left_ , boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::shift_left_ , tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() << a1(); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::shift_right_, boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::shift_right_, tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >))((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
     typedef A0 result_type; BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return a0() >> a1(); }
   };
@@ -138,7 +139,7 @@ namespace ext
   /// http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53094
   ///                                         (17.12.2012.) (Domagoj Saric)
   /// \note Clang has subscript operator support but not for ARM NEON. It does
-  /// not seem to work even when the __vector_size__ syntax is used.
+  /// not seem to work even when the __vector_size__ syntax is used. ...mrmlj...it does not seem to work at all (even for x86)...
   /// http://clang.llvm.org/docs/LanguageExtensions.html#vectors-and-extended-vectors
   /// http://clang-developers.42468.n3.nabble.com/Native-vectors-types-GCC-vs-NEON-td4035283.html
   ///                                         (28.10.2013.) (Domagoj Saric)
@@ -150,12 +151,12 @@ namespace ext
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<uint32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >) )
   {
-    typedef unsigned int result_type;
+    typedef boost::uint32_t result_type;
     BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<int32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >) )
   {
-    typedef int result_type;
+    typedef boost::int32_t result_type;
     BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
   };
 
@@ -186,7 +187,7 @@ namespace ext
 ////////////////////////////////////////////////////////////////////////////////
 
 #if defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 )
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::reverse_, boost::simd::tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::reverse_, tag::cpu_, (A0), ((simd_<arithmetic_<A0>, BOOST_SIMD_DEFAULT_EXTENSION >)) )
   {
       typedef A0 result_type;
       BOOST_SIMD_FUNCTOR_CALL(1)
@@ -198,7 +199,7 @@ namespace ext
           return result;
       }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::deinterleave_first_ , boost::simd::tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::deinterleave_first_ , tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
   {
     typedef A0 result_type;
     //...mrmlj...assume that (de)interleave will always be called in first+second
@@ -208,82 +209,98 @@ namespace ext
     //...mrmlj...http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48941
     result_type operator()(float32x4_t const a0, float32x4_t const a1) const { return vuzpq_f32( a0, a1 ).val[ 0 ]; }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::deinterleave_second_, boost::simd::tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::deinterleave_second_, tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
   {
     typedef A0 result_type;
     result_type operator()(float32x4_t const a0, float32x4_t const a1) const { return vuzpq_f32( a0, a1 ).val[ 1 ]; }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::interleave_first_   , boost::simd::tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::interleave_first_   , tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
   {
     typedef A0 result_type;
     result_type operator()(float32x4_t const a0, float32x4_t const a1) const { return vzipq_f32( a0, a1 ).val[ 0 ]; }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::interleave_second_  , boost::simd::tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::interleave_second_  , tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
   {
     typedef A0 result_type;
     result_type operator()(float32x4_t const a0, float32x4_t const a1) const { return vzipq_f32( a0, a1 ).val[ 1 ]; }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::splat_, boost::simd::tag::cpu_, (A0)(A1), (scalar_< fundamental_<A0> >)((target_< simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
+  // ** splat **
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::splat_, tag::cpu_, (A0)(A1), (scalar_< fundamental_<A0> >)((target_< simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
   {
     typedef typename A1::type result_type;
     result_type operator()(A0 const a0, A1) const { return vmovq_n_f32( a0 ); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::splat_, boost::simd::tag::cpu_, (A0)(A1), (scalar_< fundamental_<A0> >)((target_< simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::splat_, tag::cpu_, (A0)(A1), (scalar_< fundamental_<A0> >)((target_< simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
   {
     typedef typename A1::type result_type;
     result_type operator()(A0 const a0, A1) const { return vmovq_n_u32( a0 ); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::splat_, boost::simd::tag::cpu_, (A0)(A1), (scalar_< fundamental_<A0> >)((target_< simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::splat_, tag::cpu_, (A0)(A1), (scalar_< fundamental_<A0> >)((target_< simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
   {
     typedef typename A1::type result_type;
     result_type operator()(A0 const a0, A1) const { return vmovq_n_s32( a0 ); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::is_less_, boost::simd::tag::cpu_, (A0), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
+  // ** is_less **
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::is_less_, tag::cpu_, (A0), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
   {
     typedef typename meta::as_logical<A0>::type result_type;
     //...mrmlj...see the note in as_simd around the as_integer<> meta-call...
     BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return vreinterpretq_s32_u32( vcltq_f32( a0, a1 ) ); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::is_greater_equal_, boost::simd::tag::cpu_, (A0), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
+  // ** is_greater **
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::is_greater_equal_, tag::cpu_, (A0), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
   {
     typedef typename meta::as_logical<A0>::type result_type;
     BOOST_SIMD_FUNCTOR_CALL_REPEAT(2) { return vreinterpretq_s32_u32( vcgeq_f32( a0, a1 ) ); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::load_, boost::simd::tag::cpu_, (A0)(A1), (iterator_< scalar_< single_<A0> > >)((target_< simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
+  // ** load **
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::load_, tag::cpu_, (A0)(A1), (iterator_< scalar_< single_<A0> > >)((target_< simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
   {
     typedef typename A1::type result_type;
     result_type operator()( A0 const a0, A1 ) const { return vld1q_f32( a0 ); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::load_ , boost::simd::tag::cpu_, (A0)(A1)(A2), (iterator_< scalar_< single_<A0> > >)(scalar_< fundamental_<A1> >)((target_< simd_< single_<A2>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::load_, tag::cpu_, (A0)(A1)(A2), (iterator_< scalar_< single_<A0> > >)(scalar_< fundamental_<A1> >)((target_< simd_< single_<A2>, BOOST_SIMD_DEFAULT_EXTENSION > >)) )
   {
     typedef typename A2::type result_type;
     inline result_type operator()( A0 const a0, A1 const a1, A2 ) const { return vld1q_f32( a0 + a1 ); }
   };
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::store_ , boost::simd::tag::cpu_, (A0)(A1), ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(iterator_< scalar_< single_<A1> > >) )
+  // ** store **
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::store_, tag::cpu_, (A0)(A1), ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(iterator_< scalar_< single_<A1> > >) )
   {
     typedef A0 result_type;
     BOOST_SIMD_FUNCTOR_CALL(2) { vst1q_f32( a1, a0 ); return a0; }
   };
-
-  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, boost::simd::tag::cpu_, (A0)(A1), ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(mpl_integral_< scalar_< integer_<A1> > >) )
+  // ** extract **
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(mpl_integral_< scalar_< integer_<A1> > >) )
   {
     typedef float result_type;
-    BOOST_FORCEINLINE result_type operator()( float32x4_t const a0, A1 ) const { return vgetq_lane_f32( a0, A1::value ); }
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 ) const { return vgetq_lane_f32( a0, A1::value ); }
   };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<uint32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(mpl_integral_< scalar_< integer_<A1> > >) )
+  {
+      typedef boost::uint32_t result_type;
+      BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 ) const { return vgetq_lane_u32( a0, A1::value ); }
+  };
+  BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<int32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(mpl_integral_< scalar_< integer_<A1> > >) )
+  {
+      typedef boost::int32_t result_type;
+      BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 ) const { return vgetq_lane_s32( a0, A1::value ); }
+  };
+  // ** insert **
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(mpl_integral_< scalar_< integer_<A2> > >) )
   {
     typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, float32x4_t & a1, A2 ) const { a1 = vsetq_lane_f32( a0, a1, A2::value ); }
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 ) const { a1 = vsetq_lane_f32( a0, a1, A2::value ); }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(mpl_integral_< scalar_< integer_<A2> > >) )
   {
     typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, uint32x4_t & a1, A2 ) const { a1 = vsetq_lane_u32( a0, a1, A2::value ); }
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 ) const { a1 = vsetq_lane_u32( a0, a1, A2::value ); }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(mpl_integral_< scalar_< integer_<A2> > >) )
   {
     typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, int32x4_t & a1, A2 ) const { a1 = vsetq_lane_s32( a0, a1, A2::value ); }
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 ) const { a1 = vsetq_lane_s32( a0, a1, A2::value ); }
   };
 
 #endif // __ARM_NEON__
@@ -323,6 +340,7 @@ namespace details
     //_mm_unpackhi_*
     //_mm_unpacklo_*
 #elif defined( __clang__ )
+    // Clang's builtin shuffle
     template
     <
         unsigned int lower_i0, unsigned int lower_i1,
@@ -343,67 +361,67 @@ namespace details
     {
         return shuffle<i0, i1, i2, i3>( vector, vector );
     }
-#elif defined( __GNUC__ ) && ( defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 ) )
-    #if ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) >= 47 ) && !defined( __ANDROID__ ) //...mrmlj...does not seem to work with the r8e gcc 4.7??
-        typedef native<unsigned int, BOOST_SIMD_DEFAULT_EXTENSION>::native_type shuffle_mask_t;
-        template
-        <
-            unsigned int lower_i0, unsigned int lower_i1,
-            unsigned int upper_i0, unsigned int upper_i1,
-            typename Vector
-        >
-        BOOST_FORCEINLINE Vector shuffle( Vector const & lower, Vector const & upper )
-        {
-          static shuffle_mask_t const mask = { 0 + lower_i0, 0 + lower_i1, 4 + upper_i0, 4 + upper_i1 };
-          return __builtin_shuffle( lower, upper, mask );
-        }
+#elif defined( __GNUC__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) >= 47 ) && !defined( __clang__ )
+    // GCC's builtin shuffle
+    typedef native<unsigned int, BOOST_SIMD_DEFAULT_EXTENSION>::native_type shuffle_mask_t;
+    template
+    <
+        unsigned int lower_i0, unsigned int lower_i1,
+        unsigned int upper_i0, unsigned int upper_i1,
+        typename Vector
+    >
+    BOOST_FORCEINLINE Vector shuffle( Vector const & lower, Vector const & upper )
+    {
+        static shuffle_mask_t const mask = { 0 + lower_i0, 0 + lower_i1, 4 + upper_i0, 4 + upper_i1 };
+        return __builtin_shuffle( lower, upper, mask );
+    }
 
-        template
-        <
-            unsigned int i0, unsigned int i1, unsigned int i2, unsigned int i3,
-            typename Vector
-        >
-        BOOST_FORCEINLINE Vector shuffle( Vector const & vector )
+    template
+    <
+        unsigned int i0, unsigned int i1, unsigned int i2, unsigned int i3,
+        typename Vector
+    >
+    BOOST_FORCEINLINE Vector shuffle( Vector const & vector )
+    {
+        static shuffle_mask_t const mask = { i0, i1, i2, i3 };
+        return __builtin_shuffle( vector, mask );
+    }
+#elif ( defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 ) ) && !( defined( __clang__ ) && defined( BOOST_SIMD_ARCH_ARM_64 ) )
+    // NEON shuffle
+    // Clang missing vtbl2_u8 for arm64 - "...and yes, support for ARM64 NEON is patchy at the moment..." https://groups.google.com/forum/#!topic/llvm-dev/Pdztvvs--yU
+    typedef native<float, BOOST_SIMD_DEFAULT_EXTENSION>::native_type builtin_vector_t;
+    template
+    <
+        unsigned int lower_i0, unsigned int lower_i1,
+        unsigned int upper_i0, unsigned int upper_i1
+    >
+    BOOST_FORCEINLINE builtin_vector_t shuffle( builtin_vector_t const lower, builtin_vector_t const upper )
+    {
+        static uint8x8_t const indices_lower =
         {
-          static shuffle_mask_t const mask = { i0, i1, i2, i3 };
-          return __builtin_shuffle( vector, mask );
-        }
-    #else // GCC w/o builtin shuffle
-        typedef native<float, BOOST_SIMD_DEFAULT_EXTENSION>::native_type builtin_vector_t;
-        template
-        <
-            unsigned int lower_i0, unsigned int lower_i1,
-            unsigned int upper_i0, unsigned int upper_i1
-        >
-        BOOST_FORCEINLINE builtin_vector_t shuffle( builtin_vector_t const lower, builtin_vector_t const upper )
+            lower_i0 * 4 + 0, lower_i0  * 4 + 1, lower_i0  * 4 + 2, lower_i0  * 4 + 3,
+            lower_i1 * 4 + 0, lower_i1  * 4 + 1, lower_i1  * 4 + 2, lower_i1  * 4 + 3,
+        };
+        static uint8x8_t const indices_upper =
         {
-            static uint8x8_t const indices_lower =
-            {
-                lower_i0 * 4 + 0, lower_i0  * 4 + 1, lower_i0  * 4 + 2, lower_i0  * 4 + 3,
-                lower_i1 * 4 + 0, lower_i1  * 4 + 1, lower_i1  * 4 + 2, lower_i1  * 4 + 3,
-            };
-            static uint8x8_t const indices_upper =
-            {
-                upper_i0 * 4 + 0, upper_i0  * 4 + 1, upper_i0  * 4 + 2, upper_i0  * 4 + 3,
-                upper_i1 * 4 + 0, upper_i1  * 4 + 1, upper_i1  * 4 + 2, upper_i1  * 4 + 3,
-            };
+            upper_i0 * 4 + 0, upper_i0  * 4 + 1, upper_i0  * 4 + 2, upper_i0  * 4 + 3,
+            upper_i1 * 4 + 0, upper_i1  * 4 + 1, upper_i1  * 4 + 2, upper_i1  * 4 + 3,
+        };
 
-            uint8x8_t const result_lower_bits( vtbl2_u8( (uint8x8x2_t const &)/*vreinterpretq_u8_f32*/( lower ), indices_lower ) );
-            uint8x8_t const result_upper_bits( vtbl2_u8( (uint8x8x2_t const &)/*vreinterpretq_u8_f32*/( upper ), indices_upper ) );
+        uint8x8_t const result_lower_bits( vtbl2_u8( (uint8x8x2_t const &)/*vreinterpretq_u8_f32*/( lower ), indices_lower ) );
+        uint8x8_t const result_upper_bits( vtbl2_u8( (uint8x8x2_t const &)/*vreinterpretq_u8_f32*/( upper ), indices_upper ) );
 
-            return vcombine_f32( vreinterpret_f32_u8( result_lower_bits ), vreinterpret_f32_u8( result_upper_bits ) );
-        }
-        template <unsigned int i0, unsigned int i1, unsigned int i2, unsigned int i3>
-        BOOST_FORCEINLINE
-        builtin_vector_t shuffle( builtin_vector_t const vector )
-        {
-            return shuffle<i0, i1, i2, i3>( vector, vector );
-        }
-        template <>
-        builtin_vector_t shuffle<1, 0, 3, 2>( builtin_vector_t const vector ) { return vrev64q_f32( vector ); }
-    #endif
-
-#else
+        return vcombine_f32( vreinterpret_f32_u8( result_lower_bits ), vreinterpret_f32_u8( result_upper_bits ) );
+    }
+    template <unsigned int i0, unsigned int i1, unsigned int i2, unsigned int i3>
+    BOOST_FORCEINLINE
+    builtin_vector_t shuffle( builtin_vector_t const vector )
+    {
+        return shuffle<i0, i1, i2, i3>( vector, vector );
+    }
+    template <>
+    builtin_vector_t shuffle<1, 0, 3, 2>( builtin_vector_t const vector ) { return vrev64q_f32( vector ); }
+#else // generic shuffle
     template
     <
         unsigned int lower_i0, unsigned int lower_i1,
@@ -413,12 +431,13 @@ namespace details
     BOOST_FORCEINLINE
     Vector shuffle( Vector const & lower, Vector const & upper )
     {
-        Vector result;
-        result[ 0 ] = lower[ lower_i0 ];
-        result[ 1 ] = lower[ lower_i1 ];
-        result[ 2 ] = upper[ upper_i0 ];
-        result[ 3 ] = upper[ upper_i1 ];
-        return result;
+        return make<Vector>
+        (
+            lower[ lower_i0 ],
+            lower[ lower_i1 ],
+            upper[ upper_i0 ],
+            upper[ upper_i1 ]
+        );
     }
 
     template
