@@ -287,10 +287,11 @@ namespace nt2
 //   H. L. Gorginsky and G. A. Works, "A pipeline fast Fourier transform," IEEE Trans. Comput., vol. C-19, pp. 1015-1019, Nov. 1970.
 
 // Code:
-// FFTW   http://www.fftw.org
-// UHFFT  http://www2.cs.uh.edu/~ayaz/uhfft http://www.tlc2.uh.edu/Poster/Rschday_posters/Johnsson_group/UHFFT%202.0
-// SPIRAL http://www.spiral.net
-// SFFT   http://cnx.org/content/col11438/latest
+// FFTW    http://www.fftw.org
+// UHFFT   http://www2.cs.uh.edu/~ayaz/uhfft http://www.tlc2.uh.edu/Poster/Rschday_posters/Johnsson_group/UHFFT%202.0
+// SPIRAL  http://www.spiral.net
+// SFFT    http://cnx.org/content/col11438/latest
+// OpenMAX https://code.google.com/p/webrtc/issues/detail?id=2412
 //
 // https://bitbucket.org/jpommier/pffft
 // http://www.jjj.de/fxt/#fxt
