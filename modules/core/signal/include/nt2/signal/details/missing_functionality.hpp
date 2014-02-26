@@ -253,6 +253,9 @@ namespace ext
 //
 // ARM NEON
 //
+// http://software.intel.com/en-us/blogs/2012/12/12/from-arm-neon-to-intel-mmxsse-automatic-porting-solution-tips-and-tricks
+// http://software.intel.com/en-us/blogs/2011/08/18/understanding-x86-vs-arm-memory-alignment-on-android
+//
 ////////////////////////////////////////////////////////////////////////////////
 
 #if defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 )
