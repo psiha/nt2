@@ -23,7 +23,6 @@
 #include <boost/simd/operator/functions/divides.hpp>
 #include <boost/simd/operator/functions/is_less.hpp>
 #include <boost/simd/operator/functions/is_greater_equal.hpp>
-#include <boost/simd/operator/functions/simd/details/make_helper.hpp>
 #include <boost/simd/operator/functions/minus.hpp>
 #include <boost/simd/operator/functions/modulo.hpp>
 #include <boost/simd/operator/functions/multiplies.hpp>
@@ -31,6 +30,7 @@
 #include <boost/simd/operator/functions/shift_left.hpp>
 #include <boost/simd/operator/functions/shift_right.hpp>
 #include <boost/simd/operator/functions/unary_minus.hpp>
+#include <boost/simd/preprocessor/make_helper.hpp>
 #include <boost/simd/swar/functions/details/shuffle.hpp>
 #include <boost/simd/swar/functions/deinterleave_first.hpp>
 #include <boost/simd/swar/functions/deinterleave_second.hpp>
