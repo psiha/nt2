@@ -13,6 +13,8 @@
 #include <boost/simd/memory/functions/extract.hpp>
 #include <boost/simd/memory/functions/insert.hpp>
 #include <boost/simd/memory/functions/load.hpp>
+#include <boost/simd/memory/functions/make.hpp>
+#include <boost/simd/memory/functions/splat.hpp>
 #include <boost/simd/memory/functions/store.hpp>
 #include <boost/simd/operator/functions/bitwise_and.hpp>
 #include <boost/simd/operator/functions/bitwise_or.hpp>
@@ -21,7 +23,6 @@
 #include <boost/simd/operator/functions/divides.hpp>
 #include <boost/simd/operator/functions/is_less.hpp>
 #include <boost/simd/operator/functions/is_greater_equal.hpp>
-#include <boost/simd/operator/functions/make.hpp>
 #include <boost/simd/operator/functions/simd/details/make_helper.hpp>
 #include <boost/simd/operator/functions/minus.hpp>
 #include <boost/simd/operator/functions/modulo.hpp>
@@ -29,7 +30,6 @@
 #include <boost/simd/operator/functions/plus.hpp>
 #include <boost/simd/operator/functions/shift_left.hpp>
 #include <boost/simd/operator/functions/shift_right.hpp>
-#include <boost/simd/operator/functions/splat.hpp>
 #include <boost/simd/operator/functions/unary_minus.hpp>
 #include <boost/simd/swar/functions/details/shuffle.hpp>
 #include <boost/simd/swar/functions/deinterleave_first.hpp>
@@ -129,6 +129,15 @@ namespace ext
 // GCC/Clang native vector operators for emulation
 //
 ////////////////////////////////////////////////////////////////////////////////
+
+/// \note Using the below native specializations with Clang 3.3 and 3.4 when
+/// targeting the x86 architecture causes assertion failures in mask2logical()
+/// during FFT twiddle factor calculation (might have 'something' to do with the
+/// complement and/or extract operations). For this reason we skip/disable these
+/// specializations when Boost.SIMD/NT2 already provides its own
+/// (BOOST_SIMD_DETECTED is defined).
+///                                           (05.05.2014.) (Domagoj Saric)
+#if !defined( BOOST_SIMD_DETECTED )
 
 #if ( __GNUC__ >= 4 )
 
@@ -248,6 +257,8 @@ namespace ext
 
 #endif // __GNUC__
 
+#endif // !defined( BOOST_SIMD_DETECTED )
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -279,6 +290,7 @@ namespace ext
     //...mrmlj...(GCC 4.6 does but does not quite generate optimal code for
     //...mrmlj..."N-element vectors/structs")
     //...mrmlj...http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48941
+    //...mrmlj...http://gcc.gnu.org/bugzilla/show_bug.cgi?id=51980
     result_type operator()(float32x4_t const a0, float32x4_t const a1) const { return vuzpq_f32( a0, a1 ).val[ 0 ]; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::deinterleave_second_, tag::cpu_, (A0)(A1), ((simd_<single_<A0>,BOOST_SIMD_DEFAULT_EXTENSION>))((simd_<single_<A1>,BOOST_SIMD_DEFAULT_EXTENSION>)) )
@@ -350,13 +362,13 @@ namespace ext
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<uint32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(mpl_integral_< scalar_< integer_<A1> > >) )
   {
-      typedef boost::uint32_t result_type;
-      BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 ) const { return vgetq_lane_u32( a0, A1::value ); }
+    typedef boost::uint32_t result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 ) const { return vgetq_lane_u32( a0, A1::value ); }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<int32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(mpl_integral_< scalar_< integer_<A1> > >) )
   {
-      typedef boost::int32_t result_type;
-      BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 ) const { return vgetq_lane_s32( a0, A1::value ); }
+    typedef boost::int32_t result_type;
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 ) const { return vgetq_lane_s32( a0, A1::value ); }
   };
   // ** insert **
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(mpl_integral_< scalar_< integer_<A2> > >) )
