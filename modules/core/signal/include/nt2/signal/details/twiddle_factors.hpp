@@ -83,6 +83,8 @@ struct twiddles_interleaved;
 
 namespace detail
 {
+    typedef long double long_double_t;
+
     ////////////////////////////////////////////////////////////////////////////
     // Twiddle calculator implementations.
     ////////////////////////////////////////////////////////////////////////////
@@ -104,16 +106,16 @@ namespace detail
     #endif
         struct input_t
         {
-            long double const omega_scale;
-            long double const N          ;
-            int         const index      ;
+            long_double_t const omega_scale;
+            long_double_t const N          ;
+            int           const index      ;
         };
     #ifdef _MSC_VER
         #pragma warning( pop )
     #endif
 
         template <typename Vector>
-        static BOOST_FORCEINLINE input_t generate_input( int const index, long double const omega_scale, long double const N )
+        static BOOST_FORCEINLINE input_t generate_input( int const index, long_double_t const omega_scale, long_double_t const N )
         {
             input_t const input = { omega_scale, N, index };
             return input;
@@ -124,12 +126,12 @@ namespace detail
     struct twiddle_calculator_same_type
     {
         template <typename Vector>
-        static BOOST_FORCEINLINE BOOST_COLD Vector generate_input( int const index, long double const omega_scale, long double const N )
+        static BOOST_FORCEINLINE BOOST_COLD Vector generate_input( int const index, long_double_t const omega_scale, long_double_t const N )
         {
-            long double const omega( omega_scale * Impl::full_circle() / N );
+            long_double_t const omega( omega_scale * Impl::full_circle() / N );
 
-            long double const start_value( index * omega );
-            long double const increment  (         omega );
+            long_double_t const start_value( index * omega );
+            long_double_t const increment  (         omega );
 
             typedef typename Vector::value_type scalar_t;
             Vector const result ( boost::simd::enumerate<Vector>( static_cast<scalar_t>( start_value ), static_cast<scalar_t>( increment ) ) );
@@ -140,37 +142,37 @@ namespace detail
 
     struct radians : twiddle_calculator_same_type<radians>
     {
-        static long double full_circle() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L; }
+        static long_double_t full_circle() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L; }
         template <typename Vector>
         static BOOST_FORCEINLINE BOOST_COLD Vector sincos( Vector const & input, Vector & cosine ) { return sinecosine<small_>( input, cosine ); }
     }; // struct radians
 
     struct degrees : twiddle_calculator_same_type<degrees>
     {
-        static long double full_circle() { return 2 * 180; }
+        static long_double_t full_circle() { return 2 * 180; }
         template <typename Vector>
         static BOOST_FORCEINLINE BOOST_COLD Vector sincos( Vector const & input, Vector & cosine ) { return sincosd( input, cosine ); }
     }; // struct degrees
 
     struct pies : twiddle_calculator_same_type<pies>
     {
-        static long double full_circle() { return 2 * 1; }
+        static long_double_t full_circle() { return 2 * 1; }
         template <typename Vector>
         static BOOST_FORCEINLINE BOOST_COLD Vector sincos( Vector const & input, Vector & cosine ) { return sincospi( input, cosine ); }
     }; // struct pies
 
     struct pies_scalar_upgraded_type : twiddle_calculator_scalar
     {
-        static long double full_circle() { return 2 * 1; }
+        static long_double_t full_circle() { return 2 * 1; }
 
         template <typename Vector>
         static BOOST_FORCEINLINE BOOST_COLD Vector sincos( input_t const & input, Vector & cosine )
         {
             typedef typename Vector::value_type scalar_t;
 
-            long double const omega_scale( input.omega_scale );
-            long double const N          ( input.N           );
-            int         const index      ( input.index       );
+            long_double_t const omega_scale( input.omega_scale );
+            long_double_t const N          ( input.N           );
+            int           const index      ( input.index       );
 
             Vector sine;
 
@@ -193,7 +195,7 @@ namespace detail
 
     struct hardware_or_crt : twiddle_calculator_scalar
     {
-        static long double full_circle() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L; }
+        static long_double_t full_circle() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L; }
 
         template <typename Vector>
         static BOOST_FORCEINLINE BOOST_COLD Vector sincos( input_t const & input, Vector & cosine )
@@ -207,10 +209,10 @@ namespace detail
             // http://software.intel.com/en-us/forums/showthread.php?t=74354
             // http://www.devmaster.net/forums/showthread.php?t=5784
 
-            unsigned int const vector_size( Vector::static_size );
-            long double  const omega_scale( input.omega_scale   );
-            long double  const N          ( input.N             );
-            unsigned int       local_index( input.index         );
+            unsigned int  const vector_size( Vector::static_size );
+            long_double_t const omega_scale( input.omega_scale   );
+            long_double_t const N          ( input.N             );
+            unsigned int        local_index( input.index         );
             __asm
             {
                 mov ecx, vector_size
@@ -243,13 +245,13 @@ namespace detail
 
         #else // 32 bit x86 MSVC
 
-            long double const omega_scale( input.omega_scale );
-            long double const N          ( input.N           );
-            int         const index      ( input.index       );
+            long_double_t const omega_scale( input.omega_scale );
+            long_double_t const N          ( input.N           );
+            int           const index      ( input.index       );
 
             for ( unsigned i( 0 ); i < Vector::static_size; ++i )
             {
-                long double const omega( ( index + i ) * omega_scale * full_circle() / N );
+                long_double_t const omega( ( index + i ) * omega_scale * full_circle() / N );
 
                 sine  [ i ] = std::sin( omega );
                 cosine[ i ] = std::cos( omega );
@@ -307,8 +309,8 @@ namespace detail
         /// \note N/4 values are required for split-radix.
         ///                                   (21.05.2012.) (Domagoj Saric)
 
-        long double const N          ( static_cast<int>( N_int           ) );
-        long double const omega_scale( static_cast<int>( omega_scale_int ) );
+        long_double_t const N          ( static_cast<int>( N_int           ) );
+        long_double_t const omega_scale( static_cast<int>( omega_scale_int ) );
 
         unsigned       i        ( start_index             );
         unsigned const end_index( N_int / 4 + start_index );
