@@ -101,10 +101,12 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
 #else // generic
     template <std::size_t N, class T>
     struct as_simd<logical<T>, tag::simd_emulation_<N> > : as_simd< typename dispatch::meta::as_integer<T, unsigned>::type, tag::simd_emulation_<N> > {};
+#endif // target CPU
 
+#ifndef BOOST_SIMD_AUX_BUILTIN_VECTOR
     #define BOOST_SIMD_AUX_BUILTIN_VECTOR( scalar_t, sizeof_vector )  \
         typedef typename builtin_gcc_type<scalar_t>::type type __attribute__((vector_size(sizeof_vector), may_alias));
-#endif // target CPU
+#endif // BOOST_SIMD_AUX_BUILTIN_VECTOR
 
 
   // Some GCC and Clang versions require full specializations

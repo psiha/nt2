@@ -225,33 +225,33 @@ namespace ext
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<single_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >) )
   {
     typedef float result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ static_cast<unsigned int>( a1 ) ]; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<uint32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >) )
   {
     typedef boost::uint32_t result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ static_cast<unsigned int>( a1 ) ]; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::extract_, tag::cpu_, (A0)(A1), ((simd_<int32_<A0>, BOOST_SIMD_DEFAULT_EXTENSION>))(scalar_< integer_<A1> >) )
   {
     typedef boost::int32_t result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ a1 ]; }
+    BOOST_FORCEINLINE result_type operator()( A0 const & a0, A1 const a1 ) const { return a0()[ static_cast<unsigned int>( a1 ) ]; }
   };
 
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< single_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
     typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 const a2 ) const { a1()[ a2 ] = a0; }
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 const a2 ) const { a1()[ static_cast<unsigned int>( a2 ) ] = a0; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< uint32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
     typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 const a2 ) const { a1()[ a2 ] = a0; }
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 const a2 ) const { a1()[ static_cast<unsigned int>( a2 ) ] = a0; }
   };
   BOOST_SIMD_FUNCTOR_IMPLEMENTATION( boost::simd::tag::insert_, tag::cpu_, (A0)(A1)(A2), (scalar_< arithmetic_<A0> >)((simd_< int32_<A1>, BOOST_SIMD_DEFAULT_EXTENSION >))(scalar_< integer_<A2> >) )
   {
     typedef void result_type;
-    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 const a2 ) const { a1()[ a2 ] = a0; }
+    BOOST_FORCEINLINE result_type operator()( A0 const a0, A1 & a1, A2 const a2 ) const { a1()[ static_cast<unsigned int>( a2 ) ] = a0; }
   };
 #endif // GCC 4.8+
 
@@ -447,7 +447,7 @@ namespace details
     }
 #elif defined( __GNUC__ ) && ( ( ( __GNUC__ * 10 ) + __GNUC_MINOR__ ) >= 47 ) && !defined( __clang__ )
     // GCC's builtin shuffle
-    typedef native<unsigned int, BOOST_SIMD_DEFAULT_EXTENSION>::native_type shuffle_mask_t;
+    typedef int shuffle_mask_t __attribute__(( vector_size( 16 ) ));
     template
     <
         unsigned int lower_i0, unsigned int lower_i1,
@@ -456,8 +456,11 @@ namespace details
     >
     BOOST_FORCEINLINE Vector shuffle( Vector const & lower, Vector const & upper )
     {
-        static shuffle_mask_t const mask = { 0 + lower_i0, 0 + lower_i1, 4 + upper_i0, 4 + upper_i1 };
-        return __builtin_shuffle( lower, upper, mask );
+        /// \note GCC4.8 can crash here.
+        /// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57509
+        ///                                   (01.10.2014.) (Domagoj Saric)
+        shuffle_mask_t constexpr mask = { 0 + lower_i0, 0 + lower_i1, 4 + upper_i0, 4 + upper_i1 };
+        return __builtin_shuffle( lower.data_, upper.data_, mask );
     }
 
     template
@@ -467,8 +470,8 @@ namespace details
     >
     BOOST_FORCEINLINE Vector shuffle( Vector const & vector )
     {
-        static shuffle_mask_t const mask = { i0, i1, i2, i3 };
-        return __builtin_shuffle( vector, mask );
+        shuffle_mask_t constexpr mask = { i0, i1, i2, i3 };
+        return __builtin_shuffle( vector.data_, mask );
     }
 #elif ( defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 ) ) && !( defined( __clang__ ) && defined( BOOST_SIMD_ARCH_ARM_64 ) )
     // NEON shuffle
