@@ -44,6 +44,10 @@
 #include <boost/simd/sdk/simd/native.hpp>
 
 #include <boost/type_traits/is_const.hpp>
+
+#if defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 )
+#include "arm_neon.h"
+#endif // ARM Neon
 //------------------------------------------------------------------------------
 #if defined( _MSC_VER )
 
