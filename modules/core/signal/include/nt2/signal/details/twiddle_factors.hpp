@@ -1,7 +1,7 @@
 //==============================================================================
 //         Copyright 2003 - 2011   LASMEA UMR 6602 CNRS/Univ. Clermont II
 //         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//         Copyright 2012 - 2013   Domagoj Saric, Little Endian Ltd.
+//         Copyright 2012 - 2015   Domagoj Saric, Little Endian Ltd.
 //
 //          Distributed under the Boost Software License, Version 1.0.
 //                 See accompanying file LICENSE.txt or copy at
@@ -25,6 +25,7 @@
 
 #include <boost/simd/sdk/simd/extensions.hpp>
 #include <boost/simd/include/functions/simd/enumerate.hpp>
+#include <boost/simd/preprocessor/aligned_type.hpp>
 
 #include <boost/concept_check.hpp>
 #include <boost/preprocessor/arithmetic/add.hpp>
@@ -367,7 +368,9 @@ namespace detail
             >
             factors_t;
 
-        factors_t /*const*/ factors;
+        typedef BOOST_SIMD_ALIGNED_TYPE_ON( factors_t, 64 ) cache_aligned_factors_t;
+
+        cache_aligned_factors_t /*const*/ factors;
     }; // struct twiddle_holder
 
     template <typename Vector, unsigned N>
@@ -386,7 +389,9 @@ namespace detail
             >
             factors_t;
 
-        factors_t /*const*/ factors;
+        typedef BOOST_SIMD_ALIGNED_TYPE_ON( factors_t, 64 ) cache_aligned_factors_t;
+
+        cache_aligned_factors_t /*const*/ factors;
     }; // struct real_separation_twiddles_holder
 } // namespace detail
 
@@ -394,7 +399,7 @@ template <unsigned N, typename Vector>
 struct twiddles_interleaved
 {
 public:
-    static split_radix_twiddles<Vector> const * factors() { return twiddles_.factors.begin(); }
+    static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors() { return twiddles_.factors.begin(); }
 
 private:
     typedef detail::twiddle_holder<Vector, N> twiddle_holder;
@@ -402,6 +407,7 @@ private:
 };
 
 template <unsigned N, typename Vector>
+BOOST_SIMD_ALIGN_ON( 64 )
 typename twiddles_interleaved<N, Vector>::twiddle_holder const twiddles_interleaved<N, Vector>::twiddles_;
 
 
@@ -409,7 +415,7 @@ template <unsigned N, typename Vector>
 struct real_separation_twiddles
 {
 public:
-    static twiddle_pair<Vector> const * factors() { return twiddles_.factors.begin(); }
+    static BOOST_SIMD_ALIGNED_TYPE_ON( twiddle_pair<Vector>, 64 ) const * factors() { return twiddles_.factors.begin(); }
 
 private:
     typedef detail::real_separation_twiddles_holder<Vector, N> twiddle_holder;
@@ -417,6 +423,7 @@ private:
 };
 
 template <unsigned N, typename Vector>
+BOOST_SIMD_ALIGN_ON( 64 )
 typename real_separation_twiddles<N, Vector>::twiddle_holder const real_separation_twiddles<N, Vector>::twiddles_;
 
 

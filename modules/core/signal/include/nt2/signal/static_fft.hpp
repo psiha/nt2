@@ -1,7 +1,7 @@
 //==============================================================================
 //         Copyright 2003 - 2011   LASMEA UMR 6602 CNRS/Univ. Clermont II
 //         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//         Copyright 2012 - 2013   Domagoj Saric, Little Endian Ltd.
+//         Copyright 2012 - 2015   Domagoj Saric, Little Endian Ltd.
 //
 //
 // "The FFT is one of the truly great computational developments of [the 20th]
@@ -39,6 +39,9 @@
 #include <nt2/signal/details/interleaved_data_transformation.hpp> //...^
 #include <nt2/signal/details/twiddle_factors.hpp>
 
+#include <boost/simd/constant/constants/half.hpp>
+#include <boost/simd/constant/constants/mzero.hpp>
+#include <boost/simd/constant/constants/zero.hpp>
 #include <boost/simd/include/functions/scalar/ffs.hpp>
 #include <boost/simd/include/functions/scalar/ilog2.hpp>
 #include <boost/simd/include/functions/simd/make.hpp>
@@ -54,9 +57,6 @@
 #include <boost/simd/sdk/config/arch.hpp>
 #include <boost/simd/sdk/simd/extensions.hpp>
 #include <boost/simd/sdk/simd/native.hpp>
-#include <boost/simd/constant/constants/half.hpp>
-#include <boost/simd/constant/constants/mzero.hpp>
-#include <boost/simd/constant/constants/zero.hpp>
 #include <boost/simd/swar/functions/details/shuffle.hpp> //...mrmlj...should be ported to use the public shuffle...
 
 
@@ -685,7 +685,7 @@ namespace details
         }
 
         template <unsigned N>
-        static twiddles const * twiddle_factors() { return twiddles_interleaved<N, vector_t>::factors(); }
+        static BOOST_SIMD_ALIGNED_TYPE_ON( twiddles, 64 ) const * twiddle_factors() { return twiddles_interleaved<N, vector_t>::factors(); }
 
         unsigned int remaining_iterations() const { return counter_; }
 
@@ -764,7 +764,7 @@ namespace details
 
     private:
         template <unsigned int valid_bits>
-        static void BOOST_FASTCALL scramble( scalar_t * BOOST_DISPATCH_RESTRICT p_reals, scalar_t * BOOST_DISPATCH_RESTRICT p_imags );
+        static void BOOST_FASTCALL scramble( BOOST_SIMD_ALIGNED_TYPE( scalar_t ) * BOOST_DISPATCH_RESTRICT p_reals, BOOST_SIMD_ALIGNED_TYPE( scalar_t ) * BOOST_DISPATCH_RESTRICT p_imags );
 
         static void BOOST_FASTCALL separate_a
         (
@@ -806,8 +806,8 @@ namespace details
         template <unsigned int part> vector_t * i_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_imags_, part ); }
 
     private:
-        char * BOOST_DISPATCH_RESTRICT p_reals_;
-        char * BOOST_DISPATCH_RESTRICT p_imags_;
+        BOOST_SIMD_ALIGNED_TYPE( char ) * BOOST_DISPATCH_RESTRICT p_reals_;
+        BOOST_SIMD_ALIGNED_TYPE( char ) * BOOST_DISPATCH_RESTRICT p_imags_;
         unsigned int const log2_N4_bytes_; ///< log2( N/4 ) * sizeof( scalar_t )
         unsigned int       counter_      ;
 #else // !NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
@@ -1159,7 +1159,7 @@ namespace details
     // http://graphics.stanford.edu/~seander/bithacks.html#BitReverseTable
     // http://aggregate.org/MAGIC/#Bit Reversal
     // http://stackoverflow.com/questions/932079/in-place-bit-reversed-shuffle-on-an-array
-    static unsigned char const bit_reverse_table[ 256 ] =
+    static BOOST_SIMD_ALIGN_ON( 64 ) unsigned char const bit_reverse_table[ 256 ] =
     {
     #   define R2(n)    n ,    n + 2*64 ,    n + 1*64 ,    n + 3*64
     #   define R4(n) R2(n), R2(n + 2*16), R2(n + 1*16), R2(n + 3*16)
@@ -1327,9 +1327,9 @@ namespace details
     {
         return boost::simd::ffs( t ) - 1;
     }
-
+#if 0 // disabled/unused
     inline
-    void scramble2( float * const data, unsigned int const valid_bits )
+    void scramble2( BOOST_SIMD_ALIGNED_TYPE( float ) * const data, unsigned int const valid_bits )
     {
         // http://www.katjaas.nl/bitreversal/bitreversal.html
         //...zzz...doesn't work?
@@ -1365,7 +1365,7 @@ namespace details
     }
 
     inline
-    void scramble3( float * const data, unsigned int const valid_bits )
+    void scramble3( BOOST_SIMD_ALIGNED_TYPE( float ) * const data, unsigned int const valid_bits )
     {
         // http://caladan.nanosoft.ca/c4/software/bitsort.php (seems slower than scramble1)
         reim_pair_t * BOOST_DISPATCH_RESTRICT const p_reim_pairs( reinterpret_cast<reim_pair_t *>( data ) );
@@ -1388,7 +1388,7 @@ namespace details
             }
         }
     }
-
+#endif // disabled/unused
 
     ////////////////////////////////////////////////////////////////////////////
     ///
@@ -1440,9 +1440,14 @@ namespace details
 
     template <typename T>
     template <unsigned valid_bits>
-    void inplace_separated_context_t<T>::scramble( scalar_t * BOOST_DISPATCH_RESTRICT const p_reals, scalar_t * BOOST_DISPATCH_RESTRICT const p_imags )
+    void inplace_separated_context_t<T>::scramble
+    (
+        scalar_t * BOOST_DISPATCH_RESTRICT const p_reals,
+        scalar_t * BOOST_DISPATCH_RESTRICT const p_imags
+    )
     {
-        scramble1<valid_bits>( p_reals, p_imags );
+        using boost::simd::meta::align_ptr;
+        scramble1<valid_bits, scalar_t>( align_ptr<scalar_t>::value( p_reals ), align_ptr<scalar_t>::value( p_imags ) );
     }
 
 
@@ -1586,6 +1591,7 @@ namespace details
             dc_im = nyquist_re;
     } // inplace_separated_context_t<T>::separate_a()
 
+#if 0 // disabled/unused
     template <typename T>
     BOOST_NOINLINE
     void BOOST_FASTCALL inplace_separated_context_t<T>::separate_b
@@ -1681,7 +1687,7 @@ namespace details
         if ( !forward_transform )
             dc_im = nyquist_re;
     } // inplace_separated_context_t<T>::separate_b()
-
+#endif // disabled/unused
 
     ////////////////////////////////////////////////////////////////////////////
     // butterfly_loop
@@ -1941,7 +1947,7 @@ namespace details
         imag_out[ idx3 ] = i0mi1 - r3mr2;
 
     #else // BOOST_SIMD_DETECTED
-        typedef          Vector             vector_t;
+        typedef Vector vector_t;
 
         vector_t const odd_negate     ( *sign_flipper<vector_t, false, true , false, true>() );
         vector_t const negate_last_two( *sign_flipper<vector_t, false, false, true , true>() );
@@ -2033,7 +2039,7 @@ namespace details
         real_out[ idx3 ] = r3; imag_out[ idx3 ] = i3;
 
     #else // BOOST_SIMD_DETECTED
-        typedef          Vector             vector_t;
+        typedef Vector vector_t;
         using boost::simd::details::shuffle;
 
         vector_t const real( real_in ); vector_t const imag( imag_in );
