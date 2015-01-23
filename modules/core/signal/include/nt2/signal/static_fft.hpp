@@ -627,9 +627,9 @@ namespace details
         BOOST_FORCEINLINE
         inplace_separated_context_t
         (
-            parameter0_t const p_reals,
-            parameter1_t const p_imags,
-            unsigned int const N
+            parameter0_t         const p_reals,
+            parameter1_t         const p_imags,
+            boost::uint_fast16_t const N
         )
         #ifdef NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
             :
@@ -640,7 +640,7 @@ namespace details
         {}
         #else
         {
-            unsigned int const n_quarter( N / 4 / vector_t::static_size );
+            boost::uint_fast16_t const n_quarter( N / 4 / vector_t::static_size );
             // reals:
             pointer<0 * 4 + 0>() = &p_reals[ n_quarter * 0 ];
             pointer<0 * 4 + 1>() = &p_reals[ n_quarter * 1 ];
@@ -657,10 +657,10 @@ namespace details
         #endif // NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
 
     public: // butterfly interface
-        template <unsigned int part> vector_t const & r() const { return *r_element<part>(); }
-        template <unsigned int part> vector_t const & i() const { return *i_element<part>(); }
-        template <unsigned int part> vector_t       & r()       { return *r_element<part>(); }
-        template <unsigned int part> vector_t       & i()       { return *i_element<part>(); }
+        template <unsigned part> vector_t const & r() const { return *r_element<part>(); }
+        template <unsigned part> vector_t const & i() const { return *i_element<part>(); }
+        template <unsigned part> vector_t       & r()       { return *r_element<part>(); }
+        template <unsigned part> vector_t       & i()       { return *i_element<part>(); }
 
         void BOOST_FORCEINLINE operator++()
         {
@@ -687,7 +687,7 @@ namespace details
         template <unsigned N>
         static BOOST_SIMD_ALIGNED_TYPE_ON( twiddles, 64 ) const * twiddle_factors() { return twiddles_interleaved<N, vector_t>::factors(); }
 
-        unsigned int remaining_iterations() const { return counter_; }
+        boost::uint_fast16_t remaining_iterations() const { return counter_; }
 
     public: // (split radix) decimation interface
         //...zzz...instead of lower/upper, left/right or even/odd names could be used...
@@ -768,11 +768,11 @@ namespace details
 
         static void BOOST_FASTCALL separate_a
         (
-            vector_t           * BOOST_DISPATCH_RESTRICT p_reals,
-            vector_t           * BOOST_DISPATCH_RESTRICT p_imags,
-            twiddles     const * BOOST_DISPATCH_RESTRICT p_twiddle_factors,
-            native_t                                     twiddle_sign_flipper,
-            unsigned int                                 N
+            vector_t                   * BOOST_DISPATCH_RESTRICT p_reals,
+            vector_t                   * BOOST_DISPATCH_RESTRICT p_imags,
+            twiddles             const * BOOST_DISPATCH_RESTRICT p_twiddle_factors,
+            native_t                                             twiddle_sign_flipper,
+            boost::uint_fast16_t                                 N
         );
 
         static void BOOST_FASTCALL separate_b
@@ -781,44 +781,44 @@ namespace details
             vector_t                    * BOOST_DISPATCH_RESTRICT p_imags,
             real2complex_twiddles const * BOOST_DISPATCH_RESTRICT p_twiddle_factors,
             native_t                                              twiddle_sign_flipper,
-            unsigned int                                          N
+            boost::uint_fast16_t                                  N
         );
 
 #ifdef NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
     private:
-        vector_t * element( char * BOOST_DISPATCH_RESTRICT const p_data, unsigned int const part ) const
+        vector_t * element( char * BOOST_DISPATCH_RESTRICT const p_data, boost::uint_fast8_t const part ) const
         {
             char * BOOST_DISPATCH_RESTRICT const p_element( &p_data[ part << log2_N4_bytes_ ] );
             BOOST_ASSUME( p_element );
             return reinterpret_cast<vector_t *>( p_element );
         }
 
-        vector_t * prefetched_element( char * BOOST_DISPATCH_RESTRICT const p_data, unsigned int const part ) const
+        vector_t * prefetched_element( char * BOOST_DISPATCH_RESTRICT const p_data, boost::uint_fast8_t const part ) const
         {
             vector_t * BOOST_DISPATCH_RESTRICT const p_element( element( p_data, part ) );
             boost::simd::prefetch_temporary( p_element );
             return p_element;
         }
 
-        template <unsigned int part> vector_t * r_element           (                                                                        ) const { return element           ( p_reals_, part ); }
-        template <unsigned int part> vector_t * i_element           (                                                                        ) const { return element           ( p_imags_, part ); }
-        template <unsigned int part> vector_t * r_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_reals_, part ); }
-        template <unsigned int part> vector_t * i_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, unsigned int /*N*/ ) const { return prefetched_element( p_imags_, part ); }
+        template <unsigned part> vector_t * r_element           (                                                                                ) const { return element           ( p_reals_, part ); }
+        template <unsigned part> vector_t * i_element           (                                                                                ) const { return element           ( p_imags_, part ); }
+        template <unsigned part> vector_t * r_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, boost::uint_fast16_t /*N*/ ) const { return prefetched_element( p_reals_, part ); }
+        template <unsigned part> vector_t * i_prefetched_element( parameter0_t /*p_reals*/, parameter1_t /*p_imags*/, boost::uint_fast16_t /*N*/ ) const { return prefetched_element( p_imags_, part ); }
 
     private:
         BOOST_SIMD_ALIGNED_TYPE( char ) * BOOST_DISPATCH_RESTRICT p_reals_;
         BOOST_SIMD_ALIGNED_TYPE( char ) * BOOST_DISPATCH_RESTRICT p_imags_;
-        unsigned int const log2_N4_bytes_; ///< log2( N/4 ) * sizeof( scalar_t )
-        unsigned int       counter_      ;
+        boost::uint_fast8_t  const log2_N4_bytes_; ///< log2( N/4 ) * sizeof( scalar_t )
+        boost::uint_fast16_t       counter_      ;
 #else // !NT2_FFT_USE_INDEXED_BUTTERFLY_LOOP
     private:
-        static unsigned int const total_pointers      = 8;
-        static unsigned int const total_counters      = 1;
-        static unsigned int const total_registers     = total_pointers + total_counters;
+        static boost::uint8_t const total_pointers      = 8;
+        static boost::uint8_t const total_counters      = 1;
+        static boost::uint8_t const total_registers     = total_pointers + total_counters;
     #if defined( NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS ) && defined( BOOST_SIMD_HAS_EXTRA_GP_POINTER_REGISTERS )
-        static unsigned int const gp_registers_to_use = 5; // <- ...zzz...MSVC10 heuristics...
+        static boost::uint8_t const gp_registers_to_use = 5; // <- ...zzz...MSVC10 heuristics...
     #else
-        static unsigned int const gp_registers_to_use = total_pointers;
+        static boost::uint8_t const gp_registers_to_use = total_pointers;
     #endif // BOOST_SIMD_HAS_EXTRA_GP_POINTER_REGISTERS
 
         /// \note In case an "extra" register is used for the counter (which
@@ -826,7 +826,7 @@ namespace details
         /// that the same constant is used to decrement it as it is used to
         /// increment the data pointers (thus potentially saving a register).
         ///                                   (31.10.2012.) (Domagoj Saric)
-        static unsigned int const counter_step = ( sizeof( boost::simd::extra_integer_register ) == sizeof( unsigned int ) ) ? 1 : sizeof( vector_t );
+        static boost::uint_fast8_t const counter_step = ( sizeof( boost::simd::extra_integer_register ) == sizeof( unsigned int ) ) ? 1 : sizeof( vector_t );
 
         typedef typename boost::simd::make_extra_pointer_register<vector_t>::type extra_vector_ptr_t;
 
@@ -845,7 +845,7 @@ namespace details
     #if defined( NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS )
         typedef boost::simd::extra_integer_register counter_t;
     #else
-        typedef unsigned int counter_t;
+        typedef boost::uint_fast16_t counter_t;
     #endif // NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS
 
         template <unsigned int PointerIndex> vector_t           * BOOST_DISPATCH_RESTRICT & pointer_aux( vector_t           * BOOST_DISPATCH_RESTRICT const * ) { BOOST_STATIC_ASSERT( ( PointerIndex                       ) < ( sizeof( gp_pointers_    ) / sizeof( *gp_pointers_    ) ) ); return gp_pointers_   [ PointerIndex                       ]; }
@@ -865,7 +865,7 @@ namespace details
         //    return p_element;
         //}
         template <unsigned int Part>
-        vector_t * prefetched_element( parameter0_t const p_base, unsigned int const N ) const
+        vector_t * prefetched_element( parameter0_t const p_base, boost::uint_fast16_t const N ) const
         {
             vector_t * BOOST_DISPATCH_RESTRICT const p_element( &p_base[ N / 4 / vector_t::static_size * Part ] );
             BOOST_ASSUME( p_element != 0 );
@@ -873,12 +873,12 @@ namespace details
             return p_element;
         }
 
-        template <unsigned int part> typename pointer_type<0 * 4 + part>::type const & r_element           () const { return pointer           <0 * 4 + part>(); }
-        template <unsigned int part> typename pointer_type<1 * 4 + part>::type const & i_element           () const { return pointer           <1 * 4 + part>(); }
-      //template <unsigned int part> typename pointer_type<0 * 4 + part>::type const & r_prefetched_element() const { return prefetched_element<0 * 4 + part>(); }
-      //template <unsigned int part> typename pointer_type<1 * 4 + part>::type const & i_prefetched_element() const { return prefetched_element<1 * 4 + part>(); }
-        template <unsigned int part> vector_t * r_prefetched_element( parameter0_t const   p_reals  , parameter1_t const /*p_imags*/, unsigned int const N ) const { return prefetched_element<part>( p_reals, N ); }
-        template <unsigned int part> vector_t * i_prefetched_element( parameter0_t const /*p_reals*/, parameter1_t const   p_imags  , unsigned int const N ) const { return prefetched_element<part>( p_imags, N ); }
+        template <unsigned part> typename pointer_type<0 * 4 + part>::type const & r_element           () const { return pointer           <0 * 4 + part>(); }
+        template <unsigned part> typename pointer_type<1 * 4 + part>::type const & i_element           () const { return pointer           <1 * 4 + part>(); }
+      //template <unsigned part> typename pointer_type<0 * 4 + part>::type const & r_prefetched_element() const { return prefetched_element<0 * 4 + part>(); }
+      //template <unsigned part> typename pointer_type<1 * 4 + part>::type const & i_prefetched_element() const { return prefetched_element<1 * 4 + part>(); }
+        template <unsigned part> vector_t * r_prefetched_element( parameter0_t const   p_reals  , parameter1_t const /*p_imags*/, boost::uint_fast16_t const N ) const { return prefetched_element<part>( p_reals, N ); }
+        template <unsigned part> vector_t * i_prefetched_element( parameter0_t const /*p_reals*/, parameter1_t const   p_imags  , boost::uint_fast16_t const N ) const { return prefetched_element<part>( p_imags, N ); }
 
     private:
         counter_t                                    counter_;
@@ -926,7 +926,7 @@ namespace details
 #pragma warning( disable : 4610 ) // Class can never be instantiated - user-defined constructor required.
 #endif
 
-template <unsigned short MinimumSize, unsigned short MaximumSize, typename T>
+template <boost::uint16_t MinimumSize, boost::uint16_t MaximumSize, typename T>
 class static_fft
 {
 private:
@@ -937,7 +937,7 @@ private:
     typedef
         boost::mpl::range_c
         <
-            unsigned int,
+            boost::uint8_t,
             boost::static_log2<MinimumSize>::value,
             boost::static_log2<MaximumSize>::value + 1
         > fft_sizes_t;
@@ -965,8 +965,8 @@ private:
         template <typename FFTSizeExponent>
         result_type operator()( FFTSizeExponent ) const
         {
-            static unsigned int const P = FFTSizeExponent::value;
-            static unsigned int const N = 1 << P;
+            static boost::uint_fast8_t  const P = FFTSizeExponent::value;
+            static boost::uint_fast16_t const N = 1 << P;
 
             using namespace details;
 
@@ -1007,8 +1007,8 @@ private:
         template <typename FFTSizeExponent>
         void operator()( FFTSizeExponent ) const
         {
-            static unsigned int const P = FFTSizeExponent::value;
-            static unsigned int const N = 1 << P;
+            static boost::uint_fast8_t  const P = FFTSizeExponent::value;
+            static boost::uint_fast16_t const N = 1 << P;
 
             transformer_t<Context>::operator()( typename Context::template complex_P<P>() );
 
@@ -1035,8 +1035,8 @@ private:
         template <typename FFTSizeExponent>
         void operator()( FFTSizeExponent ) const
         {
-            static unsigned int const P = FFTSizeExponent::value;
-            static unsigned int const N = 1 << P;
+            static boost::uint_fast8_t  const P = FFTSizeExponent::value;
+            static boost::uint_fast16_t const N = 1 << P;
 
             /// \note The "switch real and imaginary parts" trick does not work
             /// with the separate() procedure so we must "swap back" the data
@@ -1054,13 +1054,13 @@ private:
     }; // backward_real_transformer_t
 
 public:
-    static void forward_transform( T * const p_real_data, T * const p_imaginary_data, unsigned int const size )
+    static void forward_transform( T * const p_real_data, T * const p_imaginary_data, boost::uint_fast16_t const size )
     {
         typedef details::inplace_separated_context_t<T> context_t;
         do_transform( transformer_t<context_t>( details::as_vector( p_real_data ), details::as_vector( p_imaginary_data ) ), size );
     }
 
-    static void inverse_transform( T * const p_real_data, T * const p_imaginary_data, unsigned int const size )
+    static void inverse_transform( T * const p_real_data, T * const p_imaginary_data, boost::uint_fast16_t const size )
     {
         /// \note The inverse transform is implemented with the "switch real and
         /// imaginary parts" trick. This enables the same code to be used for
@@ -1076,7 +1076,7 @@ public:
         T const * const real_time_data,
         T       * const real_frequency_data,
         T       * const imag_frequency_data,
-        unsigned int const size
+        boost::uint_fast16_t const size
     )
     {
         // Separate ("deinterleave") into even and odd parts ("emulated" complex
@@ -1098,7 +1098,7 @@ public:
         T /*const*/ * const real_frequency_data,
         T /*const*/ * const imag_frequency_data,
         T           * const real_time_data,
-        unsigned int const size
+        boost::uint_fast16_t const size
     )
     {
         typedef details::inplace_separated_context_t<T> context_t;
@@ -1117,7 +1117,7 @@ public:
 
 private:
     template <class Trasformer>
-    static void do_transform( Trasformer const & transformer, unsigned int const size )
+    static void do_transform( Trasformer const & transformer, boost::uint_fast16_t const size )
     {
         boost::control::switch_<void, boost::uint_fast8_t>
         (
@@ -1133,15 +1133,15 @@ private:
 #endif
 
 template <typename T>
-T complex_fft_normalization_factor( unsigned int const size )
+T complex_fft_normalization_factor( boost::uint_fast16_t const size )
 {
-    return 1 / static_cast<T>( static_cast<signed int>( size ) );
+    return 1 / static_cast<T>( size );
 }
 
 template <typename T>
-T real_fft_normalization_factor( unsigned int const size )
+T real_fft_normalization_factor( boost::uint_fast16_t const size )
 {
-    return 1 / static_cast<T>( static_cast<signed int>( 2 * size ) );
+    return 1 / static_cast<T>( 2 * size );
 }
 
 
@@ -1159,7 +1159,7 @@ namespace details
     // http://graphics.stanford.edu/~seander/bithacks.html#BitReverseTable
     // http://aggregate.org/MAGIC/#Bit Reversal
     // http://stackoverflow.com/questions/932079/in-place-bit-reversed-shuffle-on-an-array
-    static BOOST_SIMD_ALIGN_ON( 64 ) unsigned char const bit_reverse_table[ 256 ] =
+    static BOOST_SIMD_ALIGN_ON( 64 ) boost::uint8_t const bit_reverse_table[ 256 ] =
     {
     #   define R2(n)    n ,    n + 2*64 ,    n + 1*64 ,    n + 3*64
     #   define R4(n) R2(n), R2(n + 2*16), R2(n + 1*16), R2(n + 3*16)
@@ -1168,20 +1168,20 @@ namespace details
     };
 
     template <unsigned int valid_bits>
-    unsigned int BOOST_FASTCALL reverse_bits( unsigned int const value, boost::mpl::int_<1> /*number of bytes*/ )
+    boost::uint_fast8_t BOOST_FASTCALL reverse_bits( boost::uint_fast8_t const value, boost::mpl::int_<1> /*number of bytes*/ )
     {
-        unsigned int const shift_correction  ( 8 - valid_bits                                 );
-        unsigned int const bit_reversed_value( bit_reverse_table[ value ] >> shift_correction );
+        boost::uint_fast8_t const shift_correction  ( 8 - valid_bits                                 );
+        boost::uint_fast8_t const bit_reversed_value( bit_reverse_table[ value ] >> shift_correction );
         return bit_reversed_value;
     }
 
     template <unsigned int valid_bits>
-    unsigned int BOOST_FASTCALL reverse_bits( unsigned int const value, boost::mpl::int_<2> /*number of bytes*/ )
+    boost::uint_fast16_t BOOST_FASTCALL reverse_bits( boost::uint_fast16_t const value, boost::mpl::int_<2> /*number of bytes*/ )
     {
-        unsigned int const shift_correction_lower(       16 - valid_bits   );
-        unsigned int const shift_correction_upper( 8 - ( 16 - valid_bits ) );
+        boost::uint_fast8_t const shift_correction_lower(       16 - valid_bits   );
+        boost::uint_fast8_t const shift_correction_upper( 8 - ( 16 - valid_bits ) );
 
-        unsigned int const bit_reversed_value
+        boost::uint_fast16_t const bit_reversed_value
         (
             ( bit_reverse_table[ ( value >> 0 ) & 0xFF ] << shift_correction_upper ) |
             ( bit_reverse_table[ ( value >> 8 )        ] >> shift_correction_lower )
@@ -1190,7 +1190,7 @@ namespace details
     }
 
     BOOST_FORCEINLINE
-    unsigned int BOOST_FASTCALL reverse_bits( unsigned int const value, unsigned int const valid_bits )
+    boost::uint_fast32_t BOOST_FASTCALL reverse_bits( boost::uint_fast32_t const value, unsigned int const valid_bits )
     {
         // Only 16 bit numbers supported (for efficiency):
         BOOST_ASSUME( valid_bits <= 16 );
@@ -1219,14 +1219,14 @@ namespace details
         BOOST_ASSERT( value < ( 1 << 16 )            );
         BOOST_ASSERT( input_bytes[ byte2index ] == 0 );
         BOOST_ASSERT( input_bytes[ byte3index ] == 0 );
-        unsigned char const byte0         ( input_bytes[ byte0index ] );
-        unsigned char const byte1         ( input_bytes[ byte1index ] );
-        unsigned char const reversed_byte0( bit_reverse_table[ byte0 ] );
-        unsigned char const reversed_byte1( bit_reverse_table[ byte1 ] );
+        boost::uint8_t const byte0         ( input_bytes[ byte0index ] );
+        boost::uint8_t const byte1         ( input_bytes[ byte1index ] );
+        boost::uint8_t const reversed_byte0( bit_reverse_table[ byte0 ] );
+        boost::uint8_t const reversed_byte1( bit_reverse_table[ byte1 ] );
 
-        unsigned int const bit_reversed_value          ( ( reversed_byte0 << 8 ) | ( reversed_byte1 << 0 ) );
-        unsigned int const valid_bits_correction_shift ( 16 - valid_bits                                   );
-        unsigned int const corrected_bit_reversed_value( bit_reversed_value >> valid_bits_correction_shift );
+        boost::uint_fast32_t const bit_reversed_value          ( ( reversed_byte0 << 8 ) | ( reversed_byte1 << 0 ) );
+        boost::uint_fast32_t const valid_bits_correction_shift ( 16 - valid_bits                                   );
+        boost::uint_fast32_t const corrected_bit_reversed_value( bit_reversed_value >> valid_bits_correction_shift );
         return corrected_bit_reversed_value;
     }
 
@@ -1254,8 +1254,8 @@ namespace details
     void BOOST_FORCEINLINE swap
     (
         reim_pair_t * BOOST_DISPATCH_RESTRICT const p_reim_pairs,
-        unsigned int const index,
-        unsigned int const mirror_index
+        boost::uint_fast16_t const index,
+        boost::uint_fast16_t const mirror_index
     )
     {
         reim_pair_t * BOOST_DISPATCH_RESTRICT const p_left_reim_pair ( &p_reim_pairs[ index        ] );
@@ -1266,10 +1266,10 @@ namespace details
     template <typename Scalar>
     void BOOST_FORCEINLINE swap
     (
-        Scalar       * BOOST_DISPATCH_RESTRICT const p_reals,
-        Scalar       * BOOST_DISPATCH_RESTRICT const p_imags,
-        unsigned int                           const index,
-        unsigned int                           const mirror_index
+        Scalar               * BOOST_DISPATCH_RESTRICT const p_reals,
+        Scalar               * BOOST_DISPATCH_RESTRICT const p_imags,
+        boost::uint_fast16_t                           const index,
+        boost::uint_fast16_t                           const mirror_index
     )
     {
         Scalar * BOOST_DISPATCH_RESTRICT const p_left_real ( &p_reals[ index        ] );
@@ -1289,11 +1289,11 @@ namespace details
     {
         typedef boost::mpl::int_<( ( valid_bits - 1 ) / 8 ) + 1> number_of_bytes;
 
-        unsigned int const N( 1 << valid_bits );
+        boost::uint_fast16_t const N( 1 << valid_bits );
 
-        unsigned int const half_N( N / 2 );
-        unsigned int i( 1 );
-        unsigned int j( 0 );
+        boost::uint_fast16_t const half_N( N / 2 );
+        boost::uint_fast16_t i( 1 );
+        boost::uint_fast16_t j( 0 );
         while ( i < half_N )
         {
             // odd:
@@ -1329,7 +1329,7 @@ namespace details
     }
 #if 0 // disabled/unused
     inline
-    void scramble2( BOOST_SIMD_ALIGNED_TYPE( float ) * const data, unsigned int const valid_bits )
+    void scramble2( BOOST_SIMD_ALIGNED_TYPE( float ) * const data, boost::uint_fast8_t const valid_bits )
     {
         // http://www.katjaas.nl/bitreversal/bitreversal.html
         //...zzz...doesn't work?
@@ -1365,7 +1365,7 @@ namespace details
     }
 
     inline
-    void scramble3( BOOST_SIMD_ALIGNED_TYPE( float ) * const data, unsigned int const valid_bits )
+    void scramble3( BOOST_SIMD_ALIGNED_TYPE( float ) * const data, boost::uint_fast8_t const valid_bits )
     {
         // http://caladan.nanosoft.ca/c4/software/bitsort.php (seems slower than scramble1)
         reim_pair_t * BOOST_DISPATCH_RESTRICT const p_reim_pairs( reinterpret_cast<reim_pair_t *>( data ) );
@@ -1455,11 +1455,11 @@ namespace details
     BOOST_NOINLINE
     void BOOST_FASTCALL inplace_separated_context_t<T>::separate_a
     (
-        vector_t           * BOOST_DISPATCH_RESTRICT const p_reals          , // N/2 ( + 1 ) scalars
-        vector_t           * BOOST_DISPATCH_RESTRICT const p_imags          , // N/2 ( + 1 ) scalars
-        twiddles     const * BOOST_DISPATCH_RESTRICT const p_twiddle_factors, // requires N/4 twiddle factors
-        native_t                                     const twiddle_flipper  ,
-        unsigned int                                 const N                  // power-of-two
+        vector_t                   * BOOST_DISPATCH_RESTRICT const p_reals          , // N/2 ( + 1 ) scalars
+        vector_t                   * BOOST_DISPATCH_RESTRICT const p_imags          , // N/2 ( + 1 ) scalars
+        twiddles             const * BOOST_DISPATCH_RESTRICT const p_twiddle_factors, // requires N/4 twiddle factors
+        native_t                                             const twiddle_flipper  ,
+        boost::uint_fast16_t                                 const N                  // power-of-two
     )
     {
         twiddles const * BOOST_DISPATCH_RESTRICT p_twiddles( p_twiddle_factors );
@@ -1600,7 +1600,7 @@ namespace details
         vector_t                    * BOOST_DISPATCH_RESTRICT const p_imags          , // N/2 ( + 1 ) scalars
         real2complex_twiddles const * BOOST_DISPATCH_RESTRICT const p_twiddle_factors, // requires N/4 twiddle factors
         native_t                                              const twiddle_flipper  ,
-        unsigned int                                          const N                  // power-of-two
+        boost::uint_fast16_t                                  const N                  // power-of-two
     )
     {
         real2complex_twiddles const * BOOST_DISPATCH_RESTRICT p_twiddles( p_twiddle_factors );
@@ -1706,7 +1706,7 @@ namespace details
         typename Context::parameter0_t                                 const param0,
         typename Context::parameter1_t                                 const param1,
         typename Context::twiddles     const * BOOST_DISPATCH_RESTRICT       p_w,
-        unsigned int                                                   const N
+        boost::uint_fast16_t                                           const N
     )
     {
         Context context( param0, param1, N );
