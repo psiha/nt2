@@ -555,7 +555,7 @@ namespace details
 
         typedef split_radix_twiddles<vector_t> twiddles             ;
         typedef twiddle_pair        <vector_t> real2complex_twiddles;
-    };
+    }; // struct types
 
     template <typename Scalar>
     typename types<Scalar>::vector_t * as_vector( Scalar * const p_data )
@@ -1281,7 +1281,7 @@ namespace details
     }
 
     template <unsigned int valid_bits, typename Scalar>
-    void scramble1
+    void BOOST_FASTCALL scramble1
     (
         Scalar * BOOST_DISPATCH_RESTRICT const p_reals,
         Scalar * BOOST_DISPATCH_RESTRICT const p_imags
@@ -1298,16 +1298,21 @@ namespace details
         {
             // odd:
             j += half_N;
+            boost::uint_fast16_t const odd_j( j );
+            boost::uint_fast16_t const odd_i( i );
             BOOST_ASSERT( j == reverse_bits<valid_bits>( i, number_of_bytes() ) );
-            swap( p_reals, p_imags, i, j );
-            ++i;
 
             // even:
+            ++i;
             j = reverse_bits<valid_bits>( i, number_of_bytes() );
-            if ( i < j )
+            boost::uint_fast16_t const even_j( j );
+            boost::uint_fast16_t const even_i( i );
+
+            swap( p_reals, p_imags, odd_i, odd_j );
+            if ( even_i < even_j )
             {
-                swap( p_reals, p_imags, i, j );
-                BOOST_ASSERT( j < half_N );
+                swap( p_reals, p_imags, even_i, even_j );
+                BOOST_ASSERT( even_j < half_N );
                 /// \note See
                 ///  - fxtbook, chapter 2.1.3
                 ///  - http://www.codeproject.com/Articles/9388/How-to-implement-the-FFT-algorithm
@@ -1316,7 +1321,7 @@ namespace details
                 /// instead of subtracting (( N - 1 ) ^ i == N - 1 - i) this
                 /// however seems slightly slower (MSVC10+i5).
                 ///                       (01.03.2012.) (Domagoj Saric)
-                swap( p_reals, p_imags, N - 1 - i, N - 1 - j );
+                swap( p_reals, p_imags, N - 1 - even_i, N - 1 - even_j );
             }
             ++i;
         }
@@ -1790,39 +1795,37 @@ namespace details
         split_radix_twiddles<Vector> const & w
     )
     {
-        typedef Vector vector_t;
+        auto const r0( r0_ );
+        auto const r1( r1_ );
+        auto const r2( r2_ );
+        auto const r3( r3_ );
+        auto const i0( i0_ );
+        auto const i1( i1_ );
+        auto const i2( i2_ );
 
-        vector_t const r0( r0_ );
-        vector_t const r1( r1_ );
-        vector_t const r2( r2_ );
-        vector_t const r3( r3_ );
-        vector_t const i0( i0_ );
-        vector_t const i1( i1_ );
-        vector_t const i2( i2_ );
+                     r0_ = r0 + r2;
+                     i0_ = i0 + i2;
+        auto const t0m2_r( r0 - r2 );
+        auto const t0m2_i( i0 - i2 );
 
-                         r0_ = r0 + r2;
-                         i0_ = i0 + i2;
-        vector_t const t0m2_r( r0 - r2 );
-        vector_t const t0m2_i( i0 - i2 );
+        auto const i3( i3_ );
+                     r1_ = r1 + r3;
+                     i1_ = i1 + i3;
+        auto const t1m3_r( r1 - r3 );
+        auto const t1m3_i( i1 - i3 );
 
-        vector_t const i3( i3_ );
-                         r1_ = r1 + r3;
-                         i1_ = i1 + i3;
-        vector_t const t1m3_r( r1 - r3 );
-        vector_t const t1m3_i( i1 - i3 );
+        auto const tpj_r( t0m2_r + t1m3_i );
+        auto const tpj_i( t0m2_i - t1m3_r );
+        auto const tmj_r( t0m2_r - t1m3_i );
+        auto const tmj_i( t0m2_i + t1m3_r );
 
-        vector_t const tpj_r( t0m2_r + t1m3_i );
-        vector_t const tpj_i( t0m2_i - t1m3_r );
-        vector_t const tmj_r( t0m2_r - t1m3_i );
-        vector_t const tmj_i( t0m2_i + t1m3_r );
-
-        vector_t const w0r( w.w0.wr );
-        vector_t const w0i( w.w0.wi );
+        auto const w0r( w.w0.wr );
+        auto const w0i( w.w0.wi );
         r2_ = ( w0r * tpj_r ) - ( w0i * tpj_i );
         i2_ = ( w0i * tpj_r ) + ( w0r * tpj_i );
 
-        vector_t const w3r( w.w3.wr );
-        vector_t const w3i( w.w3.wi );
+        auto const w3r( w.w3.wr );
+        auto const w3i( w.w3.wi );
         r3_ = ( w3r * tmj_r ) - ( w3i * tmj_i );
         i3_ = ( w3i * tmj_r ) + ( w3r * tmj_i );
     }
@@ -2402,7 +2405,7 @@ namespace details
         {
             typedef typename Context::vector_t vector_t;
 
-            split_radix_twiddles<vector_t> const * BOOST_DISPATCH_RESTRICT const p_w( Context:: template twiddle_factors<N>() );
+            auto const * BOOST_DISPATCH_RESTRICT const p_w( Context:: template twiddle_factors<N>() );
             boost::simd::prefetch_temporary( p_w );
         #ifdef _MSC_VER
             /// \note MSVC reorders the prefetch (much) further down and
