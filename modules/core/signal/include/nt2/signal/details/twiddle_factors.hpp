@@ -15,7 +15,7 @@
 #endif
 
 #include <nt2/signal/details/missing_functionality.hpp> //...mrmlj...to be moved elsewhere...
-#include <nt2/signal/details/static_sincos.hpp>
+//#include <nt2/signal/details/static_sincos.hpp>
 
 #include <nt2/include/functions/scalar/sincospi.hpp>
 #include <nt2/include/functions/simd/sinecosine.hpp>
@@ -42,25 +42,25 @@ namespace nt2
 template <typename T>
 struct twiddle_pair
 {
-    T wr;
-    T wi;
-};
+    T /*const*/ wr;
+    T /*const*/ wi;
+}; // twiddle_pair
 
 template <typename T>
 struct split_radix_twiddles
 {
-    twiddle_pair<T> w0;
-    twiddle_pair<T> w3;
-};
+    twiddle_pair<T> /*const*/ w0;
+    twiddle_pair<T> /*const*/ w3;
+}; // split_radix_twiddles
 
 
+/*
 template
 <
     unsigned FFTSize,
     typename T
 >
 struct twiddles_interleaved;
-/*
 {
     typedef
         BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT )
@@ -351,27 +351,161 @@ namespace detail
     #pragma warning( pop )
 #endif // _MSC_VER
 
-    template <typename Vector, unsigned N>
-    struct twiddle_holder
-    {
-        BOOST_COLD twiddle_holder()
-        {
-            calculate_twiddles<Vector>( &factors.front().w0, N, 2, 1, 0 );
-            calculate_twiddles<Vector>( &factors.front().w3, N, 2, 3, 0 );
-        }
+#ifdef _MSC_VER
+    #pragma warning( push )
+    #pragma warning( disable : 4503 ) // Mangled name truncated.
+#endif // _MSC_VER
 
+    /// \note A C++11/14 experiment on using variadic templates, index lists and
+    /// constexpressions to statically generate the twiddle factor arrays.
+    ///
+    /// http://stackoverflow.com/questions/17424477/implementation-c14-make-integer-sequence
+    /// http://stackoverflow.com/questions/25372805/how-exactly-is-stdmake-integer-sequence-implemented
+    /// http://stackoverflow.com/questions/16387354/template-tuple-calling-a-function-on-each-element
+    /// http://stackoverflow.com/questions/24110398/insert-a-transformed-integer-sequence-into-a-variadic-template-argument
+    ///
+    /// https://connect.microsoft.com/VisualStudio/feedback/details/813466/an-implementation-of-make-integer-sequence-results-to-an-internal-compiler-error-code-fine-on-clang
+    /// https://connect.microsoft.com/VisualStudio/feedback/details/814000/ice-compiling-recursive-template-c-17-integer-sequence-implementation
+    ///                                       (28.01.2015.) (Domagoj Saric)
+    template <unsigned...> struct seq { using type = seq; };
+
+    template <class S1, class S2> struct concat_impl;
+    template <unsigned... I1, unsigned... I2>
+    struct concat_impl<seq<I1...>, seq<I2...>> : seq<I1..., (sizeof...(I1)+I2)...> {};
+
+    template <class S1, class S2>
+    using concatenate = typename concat_impl<S1, S2>::type;
+
+    template <unsigned N> struct gen_seq;
+    template <unsigned N>
+    struct gen_seq : concatenate<typename gen_seq<N/2>::type, typename gen_seq<N - N/2>::type> {};
+
+    template <> struct gen_seq<0> : seq< > {};
+    template <> struct gen_seq<1> : seq<0> {};
+
+    template <typename Init, typename Vector, typename> struct array_aux;
+    template <typename Init, typename Vector, boost::uint16_t... Indices>
+    struct array_aux<Init, Vector, seq<Indices...>>
+    {
+        static boost::uint16_t const N = sizeof...( Indices );
         typedef
             boost::array
             <
-                split_radix_twiddles<Vector> /*const*/,
-                N / 4 / Vector::static_size
+                split_radix_twiddles<typename Vector::native_type> const,
+                N
             >
             factors_t;
 
         typedef BOOST_SIMD_ALIGNED_TYPE_ON( factors_t, 64 ) cache_aligned_factors_t;
 
-        cache_aligned_factors_t /*const*/ factors;
+        static cache_aligned_factors_t const factors;
+    }; // struct array_aux
+
+    template <typename Init, typename Vector, boost::uint16_t... Indices>
+    typename array_aux<Init, Vector, seq<Indices...>>::cache_aligned_factors_t const
+        array_aux<Init, Vector, seq<Indices...>>::factors = { { Init::value<Indices>()... } };
+
+    /// \note MSVC12 explodes/dies a slow death if we try to use the
+    /// static_(sine/cosine)() function templates (from static_sincos.hpp) in
+    /// twiddle_calculator<>::value().
+    ///                                       (28.01.2015.) (Domagoj Saric)
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin( boost::uint16_t const i, long double const omega )
+    {
+        auto BOOST_CONSTEXPR_OR_CONST x ( i * omega );
+        auto BOOST_CONSTEXPR_OR_CONST xx( x * x     );
+        return
+            -
+            (
+                x      *(1-xx/ 2/ 3*(1-xx
+                 / 4/ 5*(1-xx/ 6/ 7*(1-xx
+                 / 8/ 9*(1-xx/10/11*(1-xx
+                 /12/13*(1-xx/14/15*
+                (1-xx/16/17*
+                (1-xx/18/19*(1-xx
+                /20/21))))))))))
+            );
+    }
+
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos( boost::uint16_t const i, long double const omega )
+    {
+        auto BOOST_CONSTEXPR_OR_CONST x ( i * omega );
+        auto BOOST_CONSTEXPR_OR_CONST xx( x * x     );
+        return
+             1-xx    /2*(1-xx/ 3/ 4*
+            (1-xx/ 5/ 6*(1-xx/ 7/ 8*
+            (1-xx/ 9/10*(1-xx/11/12*
+            (1-xx/13/14*(1-xx/15/16*
+            (1-xx/17/18*(1-xx/19/20*
+            (1-xx/21/22*(1-xx/23/24
+            )))))))))));
+    }
+
+    template <boost::uint16_t N, typename Vector>
+    struct twiddle_calculator
+    {
+        static BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR o() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L / N; }
+
+        template <boost::uint16_t index>
+        static BOOST_FORCEINLINE split_radix_twiddles<typename Vector::native_type> BOOST_CONSTEXPR BOOST_FASTCALL value()
+        {
+            boost::uint16_t BOOST_CONSTEXPR_OR_CONST i( index * Vector::static_size );
+            auto BOOST_CONSTEXPR_OR_CONST omega( o() );
+            return
+            {
+                {
+                    {    cos(   i + 0      , omega ),    cos(   i + 1      , omega ),    cos(   i + 2      , omega ),    cos(   i + 3      , omega ) },
+                    { negsin(   i + 0      , omega ), negsin(   i + 1      , omega ), negsin(   i + 2      , omega ), negsin(   i + 3      , omega ) },
+                },
+                {
+                    {    cos( ( i + 0 ) * 3, omega ),    cos( ( i + 1 ) * 3, omega ),    cos( ( i + 2 ) * 3, omega ),    cos( ( i + 3 ) * 3, omega ) },
+                    { negsin( ( i + 0 ) * 3, omega ), negsin( ( i + 1 ) * 3, omega ), negsin( ( i + 2 ) * 3, omega ), negsin( ( i + 3 ) * 3, omega ) },
+                }
+            };
+        }
+    }; // twiddle_calculator
+
+    template <unsigned N, typename Vector>
+    struct static_twiddle_holder
+        : array_aux<twiddle_calculator<N, Vector>, Vector, typename gen_seq<N / Vector::static_size>::type>
+    {
+        static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors()
+        {
+            return reinterpret_cast<split_radix_twiddles<Vector> const *>( /*static_twiddle_holder::*/array_aux::factors.begin() );
+        }
+    }; // static_twiddle_holder
+
+
+    template <unsigned N, typename Vector>
+    struct runtime_twiddle_holder
+    {
+        struct BOOST_SIMD_ALIGN_ON( 64 ) cache_aligned_factors_t
+        {
+            BOOST_COLD cache_aligned_factors_t()
+            {
+                calculate_twiddles<Vector>( &factors.front().w0, N, 2, 1, 0 );
+                calculate_twiddles<Vector>( &factors.front().w3, N, 2, 3, 0 );
+            }
+
+            typedef boost::array
+                <
+                    split_radix_twiddles<Vector> /*const*/,
+                    N / 4 / Vector::static_size
+                >
+                factors_t;
+
+            factors_t factors;
+        }; // cache_aligned_factors_t
+
+        static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors()
+        {
+            return storage.factors.begin();
+        }
+
+        static cache_aligned_factors_t const storage;
     }; // struct twiddle_holder
+
+    template <unsigned N, typename Vector>
+    typename runtime_twiddle_holder<N, Vector>::cache_aligned_factors_t const runtime_twiddle_holder<N, Vector>::storage;
 
     template <typename Vector, unsigned N>
     struct real_separation_twiddles_holder
@@ -396,19 +530,12 @@ namespace detail
 } // namespace detail
 
 template <unsigned N, typename Vector>
-struct twiddles_interleaved
-{
-public:
-    static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors() { return twiddles_.factors.begin(); }
-
-private:
-    typedef detail::twiddle_holder<Vector, N> twiddle_holder;
-    static twiddle_holder const twiddles_;
-};
-
-template <unsigned N, typename Vector>
-BOOST_SIMD_ALIGN_ON( 64 )
-typename twiddles_interleaved<N, Vector>::twiddle_holder const twiddles_interleaved<N, Vector>::twiddles_;
+using twiddles_interleaved = typename boost::mpl::if_c
+      <
+        ( N <= 64 ), // a heuristic measure against bloat, compile time and memory exhaustion...
+        detail::static_twiddle_holder <N, Vector>,
+        detail::runtime_twiddle_holder<N, Vector>
+      >::type;
 
 
 template <unsigned N, typename Vector>
@@ -426,7 +553,11 @@ template <unsigned N, typename Vector>
 BOOST_SIMD_ALIGN_ON( 64 )
 typename real_separation_twiddles<N, Vector>::twiddle_holder const real_separation_twiddles<N, Vector>::twiddles_;
 
+#ifdef _MSC_VER
+    #pragma warning( pop )
+#endif // _MSC_VER
 
+#if 0
 //...zzz...the below approaches are still radix-2 specific and use old/ancient
 //...zzz...approaches with strides and separate arrays for real and imaginary
 //...zzz...parts (so that they don't need to be parameterized with the SIMD data
@@ -582,6 +713,7 @@ typename twiddles<fft_size, stride, T>::factors_t const                         
     NT2_AUX_TWIDDLES( 2048, 4, 1 );
     NT2_AUX_TWIDDLES( 2048, 4, 2 );
 ¸*/
+#endif // disabled
 
 //------------------------------------------------------------------------------
 } // namespace nt2

@@ -1,7 +1,7 @@
 //==============================================================================
 //         Copyright 2003 - 2011   LASMEA UMR 6602 CNRS/Univ. Clermont II
 //         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//         Copyright 2012 - 2013   Domagoj Saric, Little Endian Ltd.
+//         Copyright 2012 - 2015   Domagoj Saric, Little Endian Ltd.
 //
 //          Distributed under the Boost Software License, Version 1.0.
 //                 See accompanying file LICENSE.txt or copy at
@@ -11,7 +11,10 @@
 #define NT2_SIGNAL_DETAILS_STATIC_SINCOS_HPP_INCLUDED
 #pragma once
 
-#include <math.h>
+#include "boost/config.hpp"
+
+#include "math.h"
+#include "stdint.h"
 
 namespace nt2
 {
@@ -26,11 +29,12 @@ namespace detail
     template <unsigned M, unsigned N, unsigned B, unsigned A>
     struct static_sin_cos
     {
-        static double value() { return 1 - ( A*M_PI/B ) * ( A*M_PI/B ) / M / ( M+1 ) * static_sin_cos<M+2, N, B, A>::value(); }
+        BOOST_FORCEINLINE
+        static double BOOST_CONSTEXPR value() { return 1 - ( A*M_PI/B ) * ( A*M_PI/B ) / M / ( M+1 ) * static_sin_cos<M+2, N, B, A>::value(); }
     };
 
     template <unsigned N, unsigned B, unsigned A>
-    struct static_sin_cos<N, N, B, A> { static double value() { return 1; } };
+    struct static_sin_cos<N, N, B, A> { static BOOST_FORCEINLINE double BOOST_CONSTEXPR value() { return 1; } };
 } // namespace detail
 
 
@@ -83,50 +87,43 @@ struct static_cos<B, A, long double>
 // http://www.oonumerics.org/blitz/examples/fft.html
 ////////////////////////////////////////////////////////////////////////////////
 
-template <unsigned N, unsigned I>
+template </*std::*/uint16_t N, /*std::*/uint16_t I>
 struct static_sine
 {
-    static float const value;
+    static BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR value()
+    {
+        // Series expansion for sin( I*2*M_PI/N ):
+        // sin( x ) = x - x^3/3! + x^5/5! - x^7/7! + ..
+        auto BOOST_CONSTEXPR_OR_CONST x( I*2*M_PI/N );
+        return
+            x      *(1-x*x/ 2/ 3*(1-x*
+            x/ 4/ 5*(1-x*x/ 6/ 7*(1-x*
+            x/ 8/ 9*(1-x*x/10/11*(1-x*
+            x/12/13*(1-x*x/14/15*
+            (1-x*x/16/17*
+            (1-x*x/18/19*(1-x*
+            x/20/21))))))))));
+    }
 };
 
-template <unsigned N, unsigned I>
-float const static_sine<N, I>::value
-(
-    // Series expansion for sin( I*2*M_PI/N ):
-    static_cast<float>
-    (
-        (I*2*M_PI/N)      *(1-(I*2*M_PI/N)*(I*2*M_PI/N)/ 2/ 3*(1-(I*2*M_PI/N)*
-        (I*2*M_PI/N)/ 4/ 5*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/ 6/ 7*(1-(I*2*M_PI/N)*
-        (I*2*M_PI/N)/ 8/ 9*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/10/11*(1-(I*2*M_PI/N)*
-        (I*2*M_PI/N)/12/13*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/14/15*
-        (1-(I*2*M_PI/N)*(I*2*M_PI/N)/16/17*
-        (1-(I*2*M_PI/N)*(I*2*M_PI/N)/18/19*(1-(I*2*M_PI/N)*
-        (I*2*M_PI/N)/20/21))))))))))
-    )
-);
 
-
-template <unsigned N, unsigned I>
+template </*std::*/uint16_t N, /*std::*/uint16_t I>
 struct static_cosine
 {
-    static float const value;
+    static BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR value()
+    {
+        // Series expansion for cos( I*2*M_PI/N ):
+        auto BOOST_CONSTEXPR_OR_CONST x( I*2*M_PI/N );
+        return
+             1-x*x    /2*(1-x*x/ 3/ 4*
+            (1-x*x/ 5/ 6*(1-x*x/ 7/ 8*
+            (1-x*x/ 9/10*(1-x*x/11/12*
+            (1-x*x/13/14*(1-x*x/15/16*
+            (1-x*x/17/18*(1-x*x/19/20*
+            (1-x*x/21/22*(1-x*x/23/24
+            )))))))))));
+    }
 };
-
-template <unsigned N, unsigned I>
-float const static_cosine<N ,I>::value
-(
-    // Series expansion for cos( I*2*M_PI/N ):
-    static_cast<float>
-    (
-         1-(I*2*M_PI/N)*(I*2*M_PI/N)    /2*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/ 3/ 4*
-        (1-(I*2*M_PI/N)*(I*2*M_PI/N)/ 5/ 6*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/ 7/ 8*
-        (1-(I*2*M_PI/N)*(I*2*M_PI/N)/ 9/10*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/11/12*
-        (1-(I*2*M_PI/N)*(I*2*M_PI/N)/13/14*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/15/16*
-        (1-(I*2*M_PI/N)*(I*2*M_PI/N)/17/18*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/19/20*
-        (1-(I*2*M_PI/N)*(I*2*M_PI/N)/21/22*(1-(I*2*M_PI/N)*(I*2*M_PI/N)/23/24
-        )))))))))))
-    )
-);
 
 } // namespace nt2
 
