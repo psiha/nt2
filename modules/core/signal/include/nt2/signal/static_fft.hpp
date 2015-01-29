@@ -38,6 +38,7 @@
 #include <nt2/signal/details/extra_registers.hpp>                 //...^
 #include <nt2/signal/details/interleaved_data_transformation.hpp> //...^
 #include <nt2/signal/details/twiddle_factors.hpp>
+#include <nt2/signal/details/operators_lite.hpp>
 
 #include <boost/simd/constant/constants/half.hpp>
 #include <boost/simd/constant/constants/mzero.hpp>
@@ -408,16 +409,16 @@ namespace details
         /// static flipper_vector_t::native_type const flipper = { _mm_castsi128_ps( _mm_setr_epi32( e0 * mzero, e1 * mzero, e2 * mzero, e3 * mzero ) ) };
         ///                                   (12.06.2012.) (Domagoj Saric)
 
-        BOOST_STATIC_ASSERT_MSG( Vector::static_size == 4, "Temporary FFT limitation: requires 4 element vectors." );
+        BOOST_STATIC_ASSERT_MSG( boost::simd::meta::cardinal_of<Vector>::value == 4, "Temporary FFT limitation: requires 4 element vectors." );
 
         return reinterpret_cast<Vector const * BOOST_DISPATCH_RESTRICT>
         (
-            &sign_flipper_aux<typename Vector::value_type, e0, e1, e2, e3>::value
+            &sign_flipper_aux<typename boost::dispatch::meta::value_of<Vector>::type, e0, e1, e2, e3>::value
         );
     }
 
     template <bool e0, bool e1, bool e2, bool e3, typename Vector>
-    BOOST_FORCEINLINE void flip_sign( Vector & vector ){ vector ^= *sign_flipper<Vector, e0, e1, e2, e3>(); }
+    BOOST_FORCEINLINE void flip_sign( Vector & vector ){ vector = vector ^ *sign_flipper<Vector, e0, e1, e2, e3>(); }
 
     //...zzz..."no load from memory idea" playground...
     template <typename Vector>
@@ -549,12 +550,13 @@ namespace details
     struct types
     {
         //...mrmlj...meta::vector_of returns an emulated vector if scalar_t is const qualified...
-        typedef typename boost::remove_const<T>::type                    scalar_t;
-        typedef typename boost::simd::meta::vector_of<scalar_t, 4>::type vector_t;
-        typedef typename vector_t::native_type                           native_t;
+        typedef typename boost::remove_const<T>::type                                            scalar_t;
+        typedef typename boost::simd::meta::vector_of<scalar_t, 4>::type                         boost_simd_vector_t;
+        typedef typename boost::simd::meta::operator_only_lite_vector<boost_simd_vector_t>::type vector_t;
+        typedef typename boost_simd_vector_t::native_type                                        native_t;
 
-        typedef split_radix_twiddles<vector_t> twiddles             ;
-        typedef twiddle_pair        <vector_t> real2complex_twiddles;
+        typedef split_radix_twiddles<           vector_t> twiddles             ;
+        typedef twiddle_pair        <boost_simd_vector_t> real2complex_twiddles;
     }; // struct types
 
     template <typename Scalar>
@@ -636,11 +638,11 @@ namespace details
             p_reals_      ( reinterpret_cast<char *>( p_reals ) ),
             p_imags_      ( reinterpret_cast<char *>( p_imags ) ),
             log2_N4_bytes_( boost::simd::ilog2( N ) - boost::static_log2<4>::value + boost::static_log2<sizeof( scalar_t )>::value ),
-            counter_      ( N / 4 / vector_t::static_size )
+            counter_      ( N / 4 / boost::simd::meta::cardinal_of<vector_t>::value )
         {}
         #else
         {
-            boost::uint_fast16_t const n_quarter( N / 4 / vector_t::static_size );
+            boost::uint_fast16_t const n_quarter( N / 4 / boost::simd::meta::cardinal_of<vector_t>::value );
             // reals:
             pointer<0 * 4 + 0>() = &p_reals[ n_quarter * 0 ];
             pointer<0 * 4 + 1>() = &p_reals[ n_quarter * 1 ];
@@ -731,7 +733,7 @@ namespace details
             /// http://software.intel.com/en-us/articles/switch-between-instruction-types-on-32-bit-intel-architecture
             ///                               (10.10.2013.) (Domagoj Saric)
             boost::simd::extra_registers_cleanup();
-            scramble<valid_bits>( p_reals->data(), p_imags->data() );
+            scramble<valid_bits>( reinterpret_cast<scalar_t *>( p_reals ), reinterpret_cast<scalar_t *>( p_imags ) );
         }
 
         template <unsigned N>
@@ -867,7 +869,7 @@ namespace details
         template <unsigned int Part>
         vector_t * prefetched_element( parameter0_t const p_base, boost::uint_fast16_t const N ) const
         {
-            vector_t * BOOST_DISPATCH_RESTRICT const p_element( &p_base[ N / 4 / vector_t::static_size * Part ] );
+            vector_t * BOOST_DISPATCH_RESTRICT const p_element( &p_base[ N / 4 / boost::simd::meta::cardinal_of<vector_t>::value * Part ] );
             BOOST_ASSUME( p_element != 0 );
             boost::simd::prefetch_temporary( p_element );
             return p_element;
@@ -920,10 +922,10 @@ namespace details
 ////////////////////////////////////////////////////////////////////////////////
 
 #ifdef _MSC_VER
-#pragma warning( push )
-#pragma warning( disable : 4510 ) // Default constructor could not be generated.
-#pragma warning( disable : 4512 ) // Assignment operator could not be generated.
-#pragma warning( disable : 4610 ) // Class can never be instantiated - user-defined constructor required.
+    #pragma warning( push )
+    #pragma warning( disable : 4510 ) // Default constructor could not be generated.
+    #pragma warning( disable : 4512 ) // Assignment operator could not be generated.
+    #pragma warning( disable : 4610 ) // Class can never be instantiated - user-defined constructor required.
 #endif
 
 template <boost::uint16_t MinimumSize, boost::uint16_t MaximumSize, typename T>
@@ -933,6 +935,8 @@ private:
     typedef typename details::types<T>::scalar_t scalar_t;
     typedef typename details::types<T>::vector_t vector_t;
     typedef typename details::types<T>::native_t native_t;
+
+    typedef typename details::types<T>::boost_simd_vector_t full_vector_t;
 
     typedef
         boost::mpl::range_c
@@ -978,7 +982,7 @@ private:
                 decimation_t,
                 context_t,
                 vector_t,
-                vector_t::static_size
+                full_vector_t::static_size
             > recursion;
 
             if ( boost::is_same<decimation_t, dit>::value )
@@ -1002,7 +1006,8 @@ private:
     template <class Context>
     struct forward_real_transformer_t : transformer_t<Context>
     {
-        forward_real_transformer_t( typename Context::parameter0_t const param0, typename Context::parameter1_t const param1 ) : transformer_t<Context>( param0, param1 ) {}
+        forward_real_transformer_t( typename Context::parameter0_t const param0, typename Context::parameter1_t const param1 )
+            : transformer_t<Context>( param0, param1 ) {}
 
         template <typename FFTSizeExponent>
         void operator()( FFTSizeExponent ) const
@@ -1012,7 +1017,7 @@ private:
 
             transformer_t<Context>::operator()( typename Context::template complex_P<P>() );
 
-            Context:: template separate<N>( this->context_parameter0_, this->context_parameter1_, Zero<vector_t>() );
+            Context:: template separate<N>( this->context_parameter0_, this->context_parameter1_, Zero<full_vector_t>() );
         }
     }; // forward_real_transformer_t
 
@@ -1042,7 +1047,7 @@ private:
             /// with the separate() procedure so we must "swap back" the data
             /// pointers and pass the appropriate "twiddle conjugator" constant.
             ///                               (06.06.2012.) (Domagoj Saric)
-            Context:: template separate<N>( this->context_parameter1_, this->context_parameter0_, Mzero<vector_t>() );
+            Context:: template separate<N>( this->context_parameter1_, this->context_parameter0_, Mzero<full_vector_t>() );
 
             transformer_t<Context>::operator()( typename Context::template complex_P<P>() );
 
@@ -1081,12 +1086,14 @@ public:
     {
         // Separate ("deinterleave") into even and odd parts ("emulated" complex
         // data):
-        boost::simd::details::deinterleave_two_channels
+        using namespace boost;
+        using nt2_vector = typename details::types<scalar_t>::boost_simd_vector_t;
+        simd::details::deinterleave_two_channels
         (
-            details::as_vector( real_time_data      ),
-            details::as_vector( real_frequency_data ),
-            details::as_vector( imag_frequency_data ),
-            size / vector_t::static_size
+            reinterpret_cast<nt2_vector const *>( details::as_vector( real_time_data      ) ),
+            reinterpret_cast<nt2_vector       *>( details::as_vector( real_frequency_data ) ),
+            reinterpret_cast<nt2_vector       *>( details::as_vector( imag_frequency_data ) ),
+            size / simd::meta::cardinal_of<vector_t>::value
         );
 
         typedef details::inplace_separated_context_t<T> context_t;
@@ -1104,12 +1111,13 @@ public:
         typedef details::inplace_separated_context_t<T> context_t;
         do_transform( backward_real_transformer_t<context_t>( details::as_vector( real_frequency_data ), details::as_vector( imag_frequency_data ) ), size );
 
+        using nt2_vector = typename details::types<scalar_t>::boost_simd_vector_t;
         boost::simd::details::interleave_two_channels
         (
-            details::as_vector( real_frequency_data ),
-            details::as_vector( imag_frequency_data ),
-            details::as_vector( real_time_data      ),
-            size / vector_t::static_size
+            reinterpret_cast<nt2_vector const *>( details::as_vector( real_frequency_data ) ),
+            reinterpret_cast<nt2_vector const *>( details::as_vector( imag_frequency_data ) ),
+            reinterpret_cast<nt2_vector       *>( details::as_vector( real_time_data      ) ),
+            size / boost::simd::meta::cardinal_of<vector_t>::value
         );
     }
 
@@ -1467,27 +1475,31 @@ namespace details
         boost::uint_fast16_t                                 const N                  // power-of-two
     )
     {
+        using boost::simd::scalars;
+
         twiddles const * BOOST_DISPATCH_RESTRICT p_twiddles( p_twiddle_factors );
         boost::simd::prefetch_temporary( p_twiddles );
 
-        vector_t * BOOST_DISPATCH_RESTRICT p_lower_reals(  p_reals );
-        vector_t * BOOST_DISPATCH_RESTRICT p_lower_imags(  p_imags );
-        scalar_t * BOOST_DISPATCH_RESTRICT p_upper_reals( &p_reals->data()[ N / 2 - ( vector_t::static_size - 1 ) ] );
-        scalar_t * BOOST_DISPATCH_RESTRICT p_upper_imags( &p_imags->data()[ N / 2 - ( vector_t::static_size - 1 ) ] );
+        boost::uint_fast8_t const cardinal( boost::simd::meta::cardinal_of<vector_t>::value );
+
+        vector_t * BOOST_DISPATCH_RESTRICT p_lower_reals(           p_reals                               );
+        vector_t * BOOST_DISPATCH_RESTRICT p_lower_imags(           p_imags                               );
+        scalar_t * BOOST_DISPATCH_RESTRICT p_upper_reals( &scalars( p_reals )[ N / 2 - ( cardinal - 1 ) ] );
+        scalar_t * BOOST_DISPATCH_RESTRICT p_upper_imags( &scalars( p_imags )[ N / 2 - ( cardinal - 1 ) ] );
 
         //...zzz...ugh...clean this up...
         bool const forward_transform( ( reinterpret_cast<unsigned int const &>( twiddle_flipper ) == 0 ) );
-        scalar_t const dc_re_input     (                     p_reals->data()[ 0 ]                            );
-        scalar_t const nyquist_re_input( forward_transform ? p_imags->data()[ 0 ] : p_reals->data()[ N / 2 ] );
+        scalar_t const dc_re_input     (                     scalars( p_reals )[ 0 ]                               );
+        scalar_t const nyquist_re_input( forward_transform ? scalars( p_imags )[ 0 ] : scalars( p_reals )[ N / 2 ] );
 
     #ifndef NDEBUG
-        scalar_t const half_nyquist_re_check( p_reals->data()[ N / 4 ] );
-        scalar_t const half_nyquist_im_check( p_imags->data()[ N / 4 ] );
+        scalar_t const half_nyquist_re_check( scalars( p_reals )[ N / 4 ] );
+        scalar_t const half_nyquist_im_check( scalars( p_imags )[ N / 4 ] );
     #endif // NDEBUG
 
         vector_t const twiddle_sign_flipper( twiddle_flipper );
 
-        while ( p_lower_reals->data() < p_upper_reals )
+        while ( scalars( p_lower_reals ) < p_upper_reals )
         {
             using boost::simd::reverse;
             using boost::simd::load   ;
@@ -1520,10 +1532,12 @@ namespace details
             /// normalization factor.
             ///                               (27.06.2012.) (Domagoj Saric)
 
-            vector_t const upper_r( reverse( load<vector_t>( p_upper_reals ) ) );
-            vector_t const upper_i( reverse( load<vector_t>( p_upper_imags ) ) );
-            vector_t const lower_r(                         *p_lower_reals     );
-            vector_t const lower_i(                         *p_lower_imags     );
+            typedef typename types<T>::boost_simd_vector_t full_vector_t;
+
+            vector_t const upper_r( reverse( load<full_vector_t>( p_upper_reals ) ) );
+            vector_t const upper_i( reverse( load<full_vector_t>( p_upper_imags ) ) );
+            vector_t const lower_r(                              *p_lower_reals     );
+            vector_t const lower_i(                              *p_lower_imags     );
 
             vector_t const wr( p_twiddles->w0.wr ^ twiddle_sign_flipper );
             vector_t const wi( p_twiddles->w0.wi                        );
@@ -1537,22 +1551,22 @@ namespace details
             vector_t const h_temp_r( ( wr * h2r ) - ( wi * h2i ) );
             vector_t const h_temp_i( ( wr * h2i ) + ( wi * h2r ) );
 
-            vector_t const result_upper_r( reverse( h1r      - h_temp_r ) );
-            vector_t const result_lower_r(          h1r      + h_temp_r   );
-            vector_t const result_upper_i( reverse( h_temp_i - h1i      ) );
-            vector_t const result_lower_i(          h1i      + h_temp_i   );
+            vector_t const result_upper_r( reverse<full_vector_t>( h1r      - h_temp_r ) );
+            vector_t const result_lower_r(                         h1r      + h_temp_r   );
+            vector_t const result_upper_i( reverse<full_vector_t>( h_temp_i - h1i      ) );
+            vector_t const result_lower_i(                         h1i      + h_temp_i   );
 
-            store( result_upper_r, p_upper_reals );
-            store( result_upper_i, p_upper_imags );
+            store<full_vector_t>( result_upper_r, p_upper_reals );
+            store<full_vector_t>( result_upper_i, p_upper_imags );
 
-            p_upper_reals -= vector_t::static_size;
-            p_upper_imags -= vector_t::static_size;
+            p_upper_reals -= cardinal;
+            p_upper_imags -= cardinal;
 
             *p_lower_reals++ = result_lower_r;
             *p_lower_imags++ = result_lower_i;
         }
 
-        BOOST_ASSERT( p_twiddles == &p_twiddle_factors[ N / 4 / vector_t::static_size ] );
+        BOOST_ASSERT( p_twiddles == &p_twiddle_factors[ N / 4 / cardinal ] );
 
         /// \note MSVC10 uses double precision for intermediate results in the
         /// below scalar computations unless /fp:fast is specified even with
@@ -1563,10 +1577,10 @@ namespace details
         /// skipped by the above loop.
         ///                                   (29.02.2012.) (Domagoj Saric)
         {
-            scalar_t * BOOST_DISPATCH_RESTRICT const p_half_nyquist_re( &p_reals->data()[ N / 4 ] );
-            scalar_t * BOOST_DISPATCH_RESTRICT const p_half_nyquist_im( &p_imags->data()[ N / 4 ] );
-            BOOST_ASSERT( p_lower_reals->data() == p_half_nyquist_re );
-            BOOST_ASSERT( p_lower_imags->data() == p_half_nyquist_im );
+            scalar_t * BOOST_DISPATCH_RESTRICT const p_half_nyquist_re( &scalars( p_reals )[ N / 4 ] );
+            scalar_t * BOOST_DISPATCH_RESTRICT const p_half_nyquist_im( &scalars( p_imags )[ N / 4 ] );
+            BOOST_ASSERT( scalars( p_lower_reals ) == p_half_nyquist_re );
+            BOOST_ASSERT( scalars( p_lower_imags ) == p_half_nyquist_im );
             /// \note Allow "broken" half-Nyquist values if input contains NaNs.
             ///                               (05.12.2012.) (Domagoj Saric)
             BOOST_ASSERT( ( *p_half_nyquist_re == half_nyquist_re_check ) || ( half_nyquist_re_check != half_nyquist_re_check ) );
@@ -1579,10 +1593,10 @@ namespace details
         /// \note Calculate the two purely real components (the first and last,
         /// DC offset and Nyquist, bins).
         ///                                   (15.02.2012.) (Domagoj Saric)
-        scalar_t & dc_re     ( p_reals->data()[ 0     ] );
-        scalar_t & dc_im     ( p_imags->data()[ 0     ] );
-        scalar_t & nyquist_re( p_reals->data()[ N / 2 ] );
-        scalar_t & nyquist_im( p_imags->data()[ N / 2 ] );
+        scalar_t & dc_re     ( scalars( p_reals )[ 0     ] );
+        scalar_t & dc_im     ( scalars( p_imags )[ 0     ] );
+        scalar_t & nyquist_re( scalars( p_reals )[ N / 2 ] );
+        scalar_t & nyquist_im( scalars( p_imags )[ N / 2 ] );
         //...zzz...ugh...reinvestigate this...
         scalar_t const multiplier( forward_transform ? static_cast<scalar_t>( 2 ) : static_cast<scalar_t>( 1 ) );
         dc_re      = multiplier * ( dc_re_input + nyquist_re_input ); dc_im      = 0;
@@ -1611,24 +1625,24 @@ namespace details
         real2complex_twiddles const * BOOST_DISPATCH_RESTRICT p_twiddles( p_twiddle_factors );
         boost::simd::prefetch_temporary( p_twiddles );
 
-        scalar_t * BOOST_DISPATCH_RESTRICT p_lower_reals( &p_reals->data()[ 1 ] );
-        scalar_t * BOOST_DISPATCH_RESTRICT p_lower_imags( &p_imags->data()[ 1 ] );
-        vector_t * BOOST_DISPATCH_RESTRICT p_upper_reals( &p_reals[ N / vector_t::static_size / 2 - 1 ] );
-        vector_t * BOOST_DISPATCH_RESTRICT p_upper_imags( &p_imags[ N / vector_t::static_size / 2 - 1 ] );
+        scalar_t * BOOST_DISPATCH_RESTRICT p_lower_reals( &p_reals->scalars()[ 1 ] );
+        scalar_t * BOOST_DISPATCH_RESTRICT p_lower_imags( &p_imags->scalars()[ 1 ] );
+        vector_t * BOOST_DISPATCH_RESTRICT p_upper_reals( &p_reals[ N / full_vector_t::static_size / 2 - 1 ] );
+        vector_t * BOOST_DISPATCH_RESTRICT p_upper_imags( &p_imags[ N / full_vector_t::static_size / 2 - 1 ] );
 
     #ifndef NDEBUG
-        scalar_t const half_nyquist_re_check( p_reals->data()[ N / 4 ] );
-        scalar_t const half_nyquist_im_check( p_imags->data()[ N / 4 ] );
+        scalar_t const half_nyquist_re_check( scalars( p_reals )[ N / 4 ] );
+        scalar_t const half_nyquist_im_check( scalars( p_imags )[ N / 4 ] );
     #endif // NDEBUG
 
         vector_t const twiddle_sign_flipper( twiddle_flipper );
 
-        BOOST_ASSERT( &p_lower_reals        [ 0 ] == &p_reals->data()[ 1 ] );
-        BOOST_ASSERT( &p_lower_imags        [ 0 ] == &p_imags->data()[ 1 ] );
-        BOOST_ASSERT( &p_upper_reals->data()[ 3 ] == &p_reals->data()[ N / 2 - 1 ] );
-        BOOST_ASSERT( &p_upper_imags->data()[ 3 ] == &p_imags->data()[ N / 2 - 1 ] );
+        BOOST_ASSERT( &         p_lower_reals  [ 0 ] == &scalars( p_reals )[ 1 ] );
+        BOOST_ASSERT( &         p_lower_imags  [ 0 ] == &scalars( p_imags )[ 1 ] );
+        BOOST_ASSERT( &scalars( p_upper_reals )[ 3 ] == &scalars( p_reals )[ N / 2 - 1 ] );
+        BOOST_ASSERT( &scalars( p_upper_imags )[ 3 ] == &scalars( p_imags )[ N / 2 - 1 ] );
 
-        while ( p_lower_reals < p_upper_reals->data() )
+        while ( p_lower_reals < scalars( p_upper_reals ) )
         {
             using boost::simd::reverse;
             using boost::simd::load   ;
@@ -1658,30 +1672,30 @@ namespace details
 
             store( result_lower_r, p_lower_reals );
             store( result_lower_i, p_lower_imags );
-            p_lower_reals += vector_t::static_size;
-            p_lower_imags += vector_t::static_size;
+            p_lower_reals += full_vector_t::static_size;
+            p_lower_imags += full_vector_t::static_size;
 
             *p_upper_reals-- = result_upper_r;
             *p_upper_imags-- = result_upper_i;
         }
 
-        BOOST_ASSERT( p_twiddles == &p_twiddle_factors[ N / 4 / vector_t::static_size ] );
+        BOOST_ASSERT( p_twiddles == &p_twiddle_factors[ N / 4 / full_vector_t::static_size ] );
 
-        BOOST_ASSERT( half_nyquist_re_check * 2 ==   p_reals->data()[ N / 4 ] );
-        BOOST_ASSERT( half_nyquist_im_check * 2 == - p_imags->data()[ N / 4 ] );
+        BOOST_ASSERT( half_nyquist_re_check * 2 ==   scalars( p_reals )[ N / 4 ] );
+        BOOST_ASSERT( half_nyquist_im_check * 2 == - scalars( p_imags )[ N / 4 ] );
 
-        BOOST_ASSERT( &p_lower_reals        [ 0 ] == &p_reals->data()[ N / 4 + 1 ] );
-        BOOST_ASSERT( &p_lower_imags        [ 0 ] == &p_imags->data()[ N / 4 + 1 ] );
-        BOOST_ASSERT( &p_upper_reals->data()[ 3 ] == &p_reals->data()[ N / 4 - 1 ] );
-        BOOST_ASSERT( &p_upper_imags->data()[ 3 ] == &p_imags->data()[ N / 4 - 1 ] );
+        BOOST_ASSERT( &         p_lower_reals  [ 0 ] == &scalars( p_reals )[ N / 4 + 1 ] );
+        BOOST_ASSERT( &         p_lower_imags  [ 0 ] == &scalars( p_imags )[ N / 4 + 1 ] );
+        BOOST_ASSERT( &scalars( p_upper_reals )[ 3 ] == &scalars( p_reals )[ N / 4 - 1 ] );
+        BOOST_ASSERT( &scalars( p_upper_imags )[ 3 ] == &scalars( p_imags )[ N / 4 - 1 ] );
 
         /// \note Calculate the two purely real components (the first and last,
         /// DC offset and Nyquist, bins).
         ///                                   (15.02.2012.) (Domagoj Saric)
-        scalar_t & dc_re     ( p_reals->data()[ 0     ] );
-        scalar_t & dc_im     ( p_imags->data()[ 0     ] );
-        scalar_t & nyquist_re( p_reals->data()[ N / 2 ] );
-        scalar_t & nyquist_im( p_imags->data()[ N / 2 ] );
+        scalar_t & dc_re     ( scalars( p_reals )[ 0     ] );
+        scalar_t & dc_im     ( scalars( p_imags )[ 0     ] );
+        scalar_t & nyquist_re( scalars( p_reals )[ N / 2 ] );
+        scalar_t & nyquist_im( scalars( p_imags )[ N / 2 ] );
         //...zzz...ugh...clean this up...
         bool const forward_transform( ( reinterpret_cast<unsigned int const &>( twiddle_sign_flipper ) == 0 ) );
         scalar_t const dc_re_input     (                     dc_re              );
@@ -1952,39 +1966,42 @@ namespace details
     #else // BOOST_SIMD_DETECTED
         typedef Vector vector_t;
 
+        using boost::simd::details::shuffle;
+        using namespace boost::simd;
+
         vector_t const odd_negate     ( *sign_flipper<vector_t, false, true , false, true>() );
         vector_t const negate_last_two( *sign_flipper<vector_t, false, false, true , true>() );
 
         // Real:
         vector_t const real( real_in );
 
-        vector_t const r0033( boost::simd::details::shuffle<idx0, idx0, idx3, idx3>( real ) );
-        vector_t const r1122( boost::simd::details::shuffle<idx1, idx1, idx2, idx2>( real ) );
+        vector_t const r0033( shuffle<idx0, idx0, idx3, idx3>( real ) );
+        vector_t const r1122( shuffle<idx1, idx1, idx2, idx2>( real ) );
 
         vector_t const r_combined( r0033 + ( r1122 ^ odd_negate ) );
 
-        vector_t const r_left( boost::simd::repeat_lower_half( r_combined ) );
+        vector_t const r_left( repeat_lower_half( r_combined ) );
 
         // Imaginary:
         vector_t const imag( imag_in );
 
-        vector_t const i0022( boost::simd::details::shuffle<idx0, idx0, idx2, idx2>( imag ) );
-        vector_t const i1133( boost::simd::details::shuffle<idx1, idx1, idx3, idx3>( imag ) );
+        vector_t const i0022( shuffle<idx0, idx0, idx2, idx2>( imag ) );
+        vector_t const i1133( shuffle<idx1, idx1, idx3, idx3>( imag ) );
 
         vector_t const i_combined( i0022 + ( i1133 ^ odd_negate ) );
 
-        vector_t const i_left( boost::simd::repeat_lower_half( i_combined ) );
+        vector_t const i_left( repeat_lower_half( i_combined ) );
 
         // Shared (because real right needs i2mi3 and imag right needs r3mr2):
         vector_t right;
         right = boost::simd::interleave_second( r_combined, i_combined );
         // right = [ r3pr2, i2pi3, r3mr2, i2mi3 ]
-        right = boost::simd::details::shuffle<0, 3, 1, 2>( right );
+        right = shuffle<0, 3, 1, 2>( right );
         // right = [ r3pr2, i2mi3, i2pi3, r3mr2 ]
 
-        vector_t const r_right( boost::simd::repeat_lower_half( right ) );
+        vector_t const r_right( repeat_lower_half( right ) );
         // r_right = [ r3pr2, i2mi3, r3pr2, i2mi3 ]
-        vector_t const i_right( boost::simd::repeat_upper_half( right ) );
+        vector_t const i_right( repeat_upper_half( right ) );
         // i_right = [ i2pi3, r3mr2, i2pi3, r3mr2 ]
 
         real_out = r_left + ( r_right ^ negate_last_two );
@@ -2001,13 +2018,13 @@ namespace details
         Vector       & real_out, Vector       & imag_out
     )
     {
-        typedef typename Vector::value_type scalar_t;
+        typedef typename boost::dispatch::meta::value_of<Vector>::type scalar_t;
 
         //...zzz...no separate bit reversing/scrambling pass experimenting...
-        unsigned int const idx0( 0 );
-        unsigned int const idx1( 1 );
-        unsigned int const idx2( 2 );
-        unsigned int const idx3( 3 );
+        unsigned BOOST_CONSTEXPR_OR_CONST idx0( 0 );
+        unsigned BOOST_CONSTEXPR_OR_CONST idx1( 1 );
+        unsigned BOOST_CONSTEXPR_OR_CONST idx2( 2 );
+        unsigned BOOST_CONSTEXPR_OR_CONST idx3( 3 );
 
     #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
         typedef typename Vector::value_type scalar_t;
@@ -2058,7 +2075,7 @@ namespace details
 
         vector_t const r_left ( shuffle<idx0, idx0, idx0, idx0>( ri_plus, ri_minus ) ); vector_t const i_left ( shuffle<idx2, idx2, idx2, idx2>( ri_plus, ri_minus ) );
         vector_t       r_right( shuffle<idx1, idx1, idx3, idx3>( ri_plus, ri_minus ) ); vector_t const i_right( shuffle<idx3, idx3, idx1, idx1>( ri_plus, ri_minus ) );
-        r_right ^= *p_negate_upper;
+        r_right = r_right ^ *p_negate_upper;
 
         real_out = r_left + ( r_right ^ *p_negate_middle );
         imag_out = i_left + ( i_right ^ *p_negate_middle );
@@ -2075,14 +2092,14 @@ namespace details
         Vector & upper_real, Vector & upper_imag
     )
     {
-        typedef          Vector             vector_t;
-        typedef typename Vector::value_type scalar_t;
+        typedef          Vector                                          vector_t;
+        typedef typename boost::dispatch::meta::value_of<vector_t>::type scalar_t;
 
     #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
-        scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_real( lower_real.data() );
-        scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_imag( lower_imag.data() );
-        scalar_t * BOOST_DISPATCH_RESTRICT const p_upper_real( upper_real.data() );
-        scalar_t * BOOST_DISPATCH_RESTRICT const p_upper_imag( upper_imag.data() );
+        scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_real( scalars( lower_real ) );
+        scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_imag( scalars( lower_imag ) );
+        scalar_t * BOOST_DISPATCH_RESTRICT const p_upper_real( scalars( upper_real ) );
+        scalar_t * BOOST_DISPATCH_RESTRICT const p_upper_imag( scalars( upper_imag ) );
 
         scalar_t const r0( p_lower_real[ 0 ] ); scalar_t const i0( p_lower_imag[ 0 ] );
         scalar_t const r1( p_lower_real[ 1 ] ); scalar_t const i1( p_lower_imag[ 1 ] );
@@ -2257,7 +2274,7 @@ namespace details
 
             vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_odd( sign_flipper<vector_t, false, true, false, true>() );
             scalar_t const half_sqrt2    ( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
-            vector_t const twiddles      ( make<vector_t>( +half_sqrt2, -half_sqrt2, -half_sqrt2, -half_sqrt2 ) );
+            vector_t const twiddles      ( make<typename boost::simd::meta::vector_of<scalar_t, 4>::type/*vector_t*/>( +half_sqrt2, -half_sqrt2, -half_sqrt2, -half_sqrt2 ) );
             vector_t const twiddled_57   ( ( r5577 + ( i5577 ^ *p_negate_odd ) ) * twiddles );
             vector_t const twiddled_r5577( shuffle<0, 0, 3, 3>( twiddled_57 ) );
             vector_t const twiddled_i5577( shuffle<1, 1, 2, 2>( twiddled_57 ) );

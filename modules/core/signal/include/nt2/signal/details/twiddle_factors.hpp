@@ -15,6 +15,7 @@
 #endif
 
 #include <nt2/signal/details/missing_functionality.hpp> //...mrmlj...to be moved elsewhere...
+#include <nt2/signal/details/operators_lite.hpp>
 //#include <nt2/signal/details/static_sincos.hpp>
 
 #include <nt2/include/functions/scalar/sincospi.hpp>
@@ -391,10 +392,9 @@ namespace detail
         typedef
             boost::array
             <
-                split_radix_twiddles<typename Vector::native_type> const,
+                split_radix_twiddles<typename boost::simd::meta::compiler_vector<Vector>::type> const,
                 N
-            >
-            factors_t;
+            > factors_t;
 
         typedef BOOST_SIMD_ALIGNED_TYPE_ON( factors_t, 64 ) cache_aligned_factors_t;
 
@@ -403,7 +403,7 @@ namespace detail
 
     template <typename Init, typename Vector, boost::uint16_t... Indices>
     typename array_aux<Init, Vector, seq<Indices...>>::cache_aligned_factors_t const
-        array_aux<Init, Vector, seq<Indices...>>::factors = { { Init::value<Indices>()... } };
+        array_aux<Init, Vector, seq<Indices...>>::factors = { { Init:: template value<Indices>()... } };
 
     /// \note MSVC12 explodes/dies a slow death if we try to use the
     /// static_(sine/cosine)() function templates (from static_sincos.hpp) in
@@ -411,8 +411,8 @@ namespace detail
     ///                                       (28.01.2015.) (Domagoj Saric)
     BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin( boost::uint16_t const i, long double const omega )
     {
-        auto BOOST_CONSTEXPR_OR_CONST x ( i * omega );
-        auto BOOST_CONSTEXPR_OR_CONST xx( x * x     );
+        long double const x ( i * omega );
+        long double const xx( x * x     );
         return
             -
             (
@@ -428,8 +428,8 @@ namespace detail
 
     BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos( boost::uint16_t const i, long double const omega )
     {
-        auto BOOST_CONSTEXPR_OR_CONST x ( i * omega );
-        auto BOOST_CONSTEXPR_OR_CONST xx( x * x     );
+        long double const x ( i * omega );
+        long double const xx( x * x     );
         return
              1-xx    /2*(1-xx/ 3/ 4*
             (1-xx/ 5/ 6*(1-xx/ 7/ 8*
@@ -446,17 +446,17 @@ namespace detail
         static BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR o() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L / N; }
 
         template <boost::uint16_t index>
-        static BOOST_FORCEINLINE split_radix_twiddles<typename Vector::native_type> BOOST_CONSTEXPR BOOST_FASTCALL value()
+        static BOOST_FORCEINLINE split_radix_twiddles<typename boost::simd::meta::compiler_vector<Vector>::type> BOOST_CONSTEXPR BOOST_FASTCALL value()
         {
-            boost::uint16_t BOOST_CONSTEXPR_OR_CONST i( index * Vector::static_size );
+            boost::uint16_t BOOST_CONSTEXPR_OR_CONST i( index * boost::simd::meta::cardinal_of<Vector>::value );
             auto BOOST_CONSTEXPR_OR_CONST omega( o() );
             return
             {
-                {
+                { // wn
                     {    cos(   i + 0      , omega ),    cos(   i + 1      , omega ),    cos(   i + 2      , omega ),    cos(   i + 3      , omega ) },
                     { negsin(   i + 0      , omega ), negsin(   i + 1      , omega ), negsin(   i + 2      , omega ), negsin(   i + 3      , omega ) },
                 },
-                {
+                { // w3n
                     {    cos( ( i + 0 ) * 3, omega ),    cos( ( i + 1 ) * 3, omega ),    cos( ( i + 2 ) * 3, omega ),    cos( ( i + 3 ) * 3, omega ) },
                     { negsin( ( i + 0 ) * 3, omega ), negsin( ( i + 1 ) * 3, omega ), negsin( ( i + 2 ) * 3, omega ), negsin( ( i + 3 ) * 3, omega ) },
                 }
@@ -466,11 +466,11 @@ namespace detail
 
     template <unsigned N, typename Vector>
     struct static_twiddle_holder
-        : array_aux<twiddle_calculator<N, Vector>, Vector, typename gen_seq<N / Vector::static_size>::type>
+        : array_aux<twiddle_calculator<N, Vector>, Vector, typename gen_seq<N / boost::simd::meta::cardinal_of<Vector>::value>::type>
     {
         static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors()
         {
-            return reinterpret_cast<split_radix_twiddles<Vector> const *>( /*static_twiddle_holder::*/array_aux::factors.begin() );
+            return reinterpret_cast<split_radix_twiddles<Vector> const *>( static_twiddle_holder::array_aux::factors.begin() );
         }
     }; // static_twiddle_holder
 
@@ -478,18 +478,24 @@ namespace detail
     template <unsigned N, typename Vector>
     struct runtime_twiddle_holder
     {
+        typedef typename boost::simd::meta::vector_of
+        <
+            typename boost::simd::meta::scalar_of  <Vector>::type,
+                     boost::simd::meta::cardinal_of<Vector>::value
+        >::type full_vector_t;
+
         struct BOOST_SIMD_ALIGN_ON( 64 ) cache_aligned_factors_t
         {
             BOOST_COLD cache_aligned_factors_t()
             {
-                calculate_twiddles<Vector>( &factors.front().w0, N, 2, 1, 0 );
-                calculate_twiddles<Vector>( &factors.front().w3, N, 2, 3, 0 );
+                calculate_twiddles<full_vector_t>( reinterpret_cast<twiddle_pair<full_vector_t> *>( &factors.front().w0 ), N, 2, 1, 0 );
+                calculate_twiddles<full_vector_t>( reinterpret_cast<twiddle_pair<full_vector_t> *>( &factors.front().w3 ), N, 2, 3, 0 );
             }
 
             typedef boost::array
                 <
                     split_radix_twiddles<Vector> /*const*/,
-                    N / 4 / Vector::static_size
+                    N / 4 / full_vector_t::static_size
                 >
                 factors_t;
 
