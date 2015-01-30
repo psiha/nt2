@@ -409,7 +409,7 @@ namespace details
         /// static flipper_vector_t::native_type const flipper = { _mm_castsi128_ps( _mm_setr_epi32( e0 * mzero, e1 * mzero, e2 * mzero, e3 * mzero ) ) };
         ///                                   (12.06.2012.) (Domagoj Saric)
 
-        BOOST_STATIC_ASSERT_MSG( boost::simd::meta::cardinal_of<Vector>::value == 4, "Temporary FFT limitation: requires 4 element vectors." );
+        static_assert( boost::simd::meta::cardinal_of<Vector>::value == 4, "Temporary FFT limitation: requires 4 element vectors." );
 
         return reinterpret_cast<Vector const * BOOST_DISPATCH_RESTRICT>
         (
@@ -850,9 +850,9 @@ namespace details
         typedef boost::uint_fast16_t counter_t;
     #endif // NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS
 
-        template <unsigned int PointerIndex> vector_t           * BOOST_DISPATCH_RESTRICT & pointer_aux( vector_t           * BOOST_DISPATCH_RESTRICT const * ) { BOOST_STATIC_ASSERT( ( PointerIndex                       ) < ( sizeof( gp_pointers_    ) / sizeof( *gp_pointers_    ) ) ); return gp_pointers_   [ PointerIndex                       ]; }
+        template <unsigned int PointerIndex> vector_t           * BOOST_DISPATCH_RESTRICT & pointer_aux( vector_t           * BOOST_DISPATCH_RESTRICT const * ) { static_assert( ( PointerIndex                       ) < ( sizeof( gp_pointers_    ) / sizeof( *gp_pointers_    ) ), "" ); return gp_pointers_   [ PointerIndex                       ]; }
     #if defined( NT2_FFT_BUTTERFLY_LOOP_USE_EXTRA_REGISTERS ) && defined( BOOST_SIMD_HAS_EXTRA_GP_POINTER_REGISTERS )
-        template <unsigned int PointerIndex> extra_vector_ptr_t                           & pointer_aux( extra_vector_ptr_t                           const * ) { BOOST_STATIC_ASSERT( ( PointerIndex - gp_registers_to_use ) < ( sizeof( extra_pointers_ ) / sizeof( *extra_pointers_ ) ) ); return extra_pointers_[ PointerIndex - gp_registers_to_use ]; }
+        template <unsigned int PointerIndex> extra_vector_ptr_t                           & pointer_aux( extra_vector_ptr_t                           const * ) { static_assert( ( PointerIndex - gp_registers_to_use ) < ( sizeof( extra_pointers_ ) / sizeof( *extra_pointers_ ) ), "" ); return extra_pointers_[ PointerIndex - gp_registers_to_use ]; }
     #endif // BOOST_SIMD_HAS_EXTRA_GP_POINTER_REGISTERS
 
         template <unsigned int PointerIndex> typename pointer_type<PointerIndex>::type       & pointer()       { return pointer_aux<PointerIndex>( static_cast<typename pointer_type<PointerIndex>::type *>( 0 ) ); }
@@ -2661,7 +2661,7 @@ namespace details
     {
         static void apply( typename Context::parameter0_t, typename Context::parameter1_t )
         {
-            BOOST_STATIC_ASSERT_MSG( sizeof( Decimation ) && false, "Recursion should have been terminated before." );
+            static_assert( sizeof( Decimation ) && false, "Recursion should have been terminated before." );
         }
     };
 } // namespace details
