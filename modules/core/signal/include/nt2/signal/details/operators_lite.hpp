@@ -97,13 +97,16 @@
 #endif // compiler w/ or w/o native operator support for vector types
 
 //------------------------------------------------------------------------------
-#include <boost/dispatch/meta/value_of.hpp>
-#include <boost/simd/sdk/meta/cardinal_of.hpp>
-#include <boost/simd/sdk/simd/native_fwd.hpp>
+#ifdef BOOST_SIMD_HAS_LITE_OPERATORS
+    #include <boost/dispatch/meta/value_of.hpp>
+    #include <boost/simd/sdk/meta/cardinal_of.hpp>
+    #include <boost/simd/sdk/simd/meta/vector_of.hpp>
+    #include <boost/simd/sdk/simd/native.hpp>
 
-#if defined( _MSC_VER ) && defined( BOOST_SIMD_HAS_SSE2_SUPPORT )
-#include "emmintrin.h"
-#endif
+    #if defined( _MSC_VER ) && defined( BOOST_SIMD_HAS_SSE2_SUPPORT )
+        #include "emmintrin.h"
+    #endif
+#endif // BOOST_SIMD_HAS_LITE_OPERATORS
 //------------------------------------------------------------------------------
 namespace boost
 {
