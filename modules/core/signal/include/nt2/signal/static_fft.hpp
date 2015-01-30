@@ -3,7 +3,6 @@
 //         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
 //         Copyright 2012 - 2015   Domagoj Saric, Little Endian Ltd.
 //
-//
 // "The FFT is one of the truly great computational developments of [the 20th]
 // century. It has changed the face of science and engineering so much that it
 // is not an exaggeration to say that life as we know it would be very different
@@ -22,6 +21,7 @@
 //          Distributed under the Boost Software License, Version 1.0.
 //                 See accompanying file LICENSE.txt or copy at
 //                     http://www.boost.org/LICENSE_1_0.txt
+//
 //==============================================================================
 #ifndef NT2_SIGNAL_STATIC_FFT_HPP_INCLUDED
 #define NT2_SIGNAL_STATIC_FFT_HPP_INCLUDED
@@ -104,6 +104,9 @@ namespace nt2
 // Original Todd Veldhuizen implementation:
 // http://www.oonumerics.org/blitz/examples/fft.html
 
+// constexpr FFT
+// https://paulkeir.wordpress.com/2012/09/02/a-compile-time-fft-in-c11
+
 // General DFT/FFT information and tutorials:
 // http://www.katjaas.nl/fourier/fourier.html
 // http://altdevblogaday.com/2011/05/17/understanding-the-fourier-transform
@@ -165,6 +168,7 @@ namespace nt2
 //   http://cr.yp.to/bib/1986/sorensen.html
 //   http://cnx.org/content/m12031/latest
 //   http://www.fftw.org/newsplit.pdf
+//   https://www.deepdyve.com/lp/institute-of-electrical-and-electronics-engineers/optimization-of-conjugate-pair-split-radix-fft-algorithm-for-simd-aMkpTWuQml (Stanislav Ocovaj, Zeljko Lukac)
 //   http://groups.yahoo.com/group/pi-hacks/message/747
 //   http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.59.3006&rep=rep1&type=pdf (FFTW)
 //   http://www.ces.clemson.edu/~janoski/reu/2008/FFT-book.pdf

@@ -35,7 +35,7 @@
 #include <boost/preprocessor/repetition/repeat_from_to.hpp>
 
 #include <math.h>
-
+//------------------------------------------------------------------------------
 namespace nt2
 {
 //------------------------------------------------------------------------------
@@ -364,6 +364,9 @@ namespace detail
     /// http://stackoverflow.com/questions/25372805/how-exactly-is-stdmake-integer-sequence-implemented
     /// http://stackoverflow.com/questions/16387354/template-tuple-calling-a-function-on-each-element
     /// http://stackoverflow.com/questions/24110398/insert-a-transformed-integer-sequence-into-a-variadic-template-argument
+    /// http://stackoverflow.com/questions/19016099/lookup-table-with-constexpr/19016627
+    /// http://stackoverflow.com/questions/2978259/programmatically-create-static-arrays-at-compile-time-in-c/2981617#2981617
+    /// http://stackoverflow.com/questions/6060103/c11-create-static-array-with-variadic-templates
     ///
     /// https://connect.microsoft.com/VisualStudio/feedback/details/813466/an-implementation-of-make-integer-sequence-results-to-an-internal-compiler-error-code-fine-on-clang
     /// https://connect.microsoft.com/VisualStudio/feedback/details/814000/ice-compiling-recursive-template-c-17-integer-sequence-implementation
@@ -409,6 +412,12 @@ namespace detail
     /// static_(sine/cosine)() function templates (from static_sincos.hpp) in
     /// twiddle_calculator<>::value().
     ///                                       (28.01.2015.) (Domagoj Saric)
+    /// \note GCC and Clang are supposed to be capable of compile-time
+    /// evaluation of <cmath> functions:
+    /// https://groups.google.com/a/isocpp.org/forum/#!topic/std-discussion/a7D2SYqUX-I
+    /// MSVC is as usual "won't do it" on this topic
+    /// https://connect.microsoft.com/VisualStudio/Feedback/Details/807275
+    ///                                       (30.01.2015.) (Domagoj Saric)
     BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin_aux( long double const x, long double const xx )
     {
         return
