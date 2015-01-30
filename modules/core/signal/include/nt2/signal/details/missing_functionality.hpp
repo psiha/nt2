@@ -10,6 +10,8 @@
 #ifndef MISSING_FUNCTIONALITY_HPP_INCLUDED
 #define MISSING_FUNCTIONALITY_HPP_INCLUDED
 //------------------------------------------------------------------------------
+#include "operators_lite.hpp" // for compiler_vector()
+
 #include <boost/simd/memory/functions/extract.hpp>
 #include <boost/simd/memory/functions/insert.hpp>
 #include <boost/simd/memory/functions/load.hpp>
