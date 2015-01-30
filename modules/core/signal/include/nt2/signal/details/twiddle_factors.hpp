@@ -409,10 +409,8 @@ namespace detail
     /// static_(sine/cosine)() function templates (from static_sincos.hpp) in
     /// twiddle_calculator<>::value().
     ///                                       (28.01.2015.) (Domagoj Saric)
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin( boost::uint16_t const i, long double const omega )
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin_aux( long double const x, long double const xx )
     {
-        long double const x ( i * omega );
-        long double const xx( x * x     );
         return
             -
             (
@@ -425,11 +423,12 @@ namespace detail
                 /20/21))))))))))
             );
     }
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin_aux( long double const x                              ) { return negsin_aux( x, x * x  ); }
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin    ( boost::uint16_t const i, long double const omega ) { return negsin_aux( i * omega ); }
 
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos( boost::uint16_t const i, long double const omega )
+
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos_aux( long double const xx )
     {
-        long double const x ( i * omega );
-        long double const xx( x * x     );
         return
              1-xx    /2*(1-xx/ 3/ 4*
             (1-xx/ 5/ 6*(1-xx/ 7/ 8*
@@ -439,6 +438,7 @@ namespace detail
             (1-xx/21/22*(1-xx/23/24
             )))))))))));
     }
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos( boost::uint16_t const i, long double const omega ) { return cos_aux( i * i * omega * omega ); }
 
     template <boost::uint16_t N, typename Vector>
     struct twiddle_calculator
@@ -448,8 +448,8 @@ namespace detail
         template <boost::uint16_t index>
         static BOOST_FORCEINLINE split_radix_twiddles<typename boost::simd::meta::compiler_vector<Vector>::type> BOOST_CONSTEXPR BOOST_FASTCALL value()
         {
-            boost::uint16_t BOOST_CONSTEXPR_OR_CONST i( index * boost::simd::meta::cardinal_of<Vector>::value );
-            auto BOOST_CONSTEXPR_OR_CONST omega( o() );
+            boost::uint16_t BOOST_CONSTEXPR_OR_CONST i    ( index * boost::simd::meta::cardinal_of<Vector>::value );
+            auto            BOOST_CONSTEXPR_OR_CONST omega( o()                                                   );
             return
             {
                 { // wn
