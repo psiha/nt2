@@ -184,6 +184,7 @@ namespace nt2
 //   http://65.54.113.26/Publication/1837187/an-efficient-split-radix-fft-algorithm
 //   http://www.libsou.com/pdf/01625937.pdf
 //   http://wn.com/Split_Radix_Fft_Algorithm
+//   http://www.cs.newpaltz.edu/~lik/publications/Weihua-Zheng-IEEE-TSP-2014.pdf Scaled radix 2/8 FFT
 // - generic "polymorphic" radix-n framework:
 //   http://osl.iu.edu/publications/prints/2002/zalewski_algorithms_2002.pdf
 //   http://www.springerlink.com/content/63nmtp2b6x426lrp
@@ -260,6 +261,7 @@ namespace nt2
 //   http://vgrads.rice.edu/publications/pdfs/Dissertation_Ayaz.pdf
 //   http://books.google.hr/books?id=dQpi46dLJ8gC&pg=PA135&lpg=PA135&dq=fft+fast+data+access+pattern&source=bl&ots=Cmr0aZNiRb&sig=4s1rYTNq-ysXgUAIcNfyPeA1p04&hl=hr&sa=X&ei=q8XpT4yDOM6L4gSfn5DrDQ&sqi=2&ved=0CEYQ6AEwAA#v=onepage&q=fft%20fast%20data%20access%20pattern&f=false
 // - FFT specific
+//   http://researchcommons.waikato.ac.nz/bitstream/handle/10289/6417/thesis.pdf FFT@SIMD Anthony Blake PhD thesis
 //   http://cache.freescale.com/files/32bit/doc/app_note/AN2115.pdf (AltiVec)
 //   https://sites.google.com/a/istec.net/prodrig/Home/pubs (near the bottom: SIMD-FFT)
 //   http://www.ams.org/journals/mcom/1993-60-201/S0025-5718-1993-1159169-0/home.html (FMA)
@@ -301,6 +303,7 @@ namespace nt2
 // PFFFT        https://bitbucket.org/jpommier/pffft
 // RenderScript https://github.com/nesl/renderScriptFFT
 // ARM Ne10     http://projectne10.github.io/Ne10 http://community.arm.com/groups/android-community/blog/2013/12/18/projectne10-fft-is-updated
+// clFFT        https://github.com/clMathLibraries/clFFT (http://developer.amd.com/tools-and-sdks/open-source -> clMath)
 //
 // http://www.jjj.de/fxt/#fxt
 // http://star-www.rl.ac.uk/star/docs/sun194.htx/node8.html
@@ -770,7 +773,7 @@ namespace details
 
     private:
         template <unsigned int valid_bits>
-        static void BOOST_FASTCALL scramble( BOOST_SIMD_ALIGNED_TYPE( scalar_t ) * BOOST_DISPATCH_RESTRICT p_reals, BOOST_SIMD_ALIGNED_TYPE( scalar_t ) * BOOST_DISPATCH_RESTRICT p_imags );
+        static void BOOST_FASTCALL scramble( scalar_t * BOOST_DISPATCH_RESTRICT p_reals, scalar_t * BOOST_DISPATCH_RESTRICT p_imags );
 
         static void BOOST_FASTCALL separate_a
         (
@@ -2812,7 +2815,7 @@ void realfft_split( float * BOOST_DISPATCH_RESTRICT data, unsigned const n )
     }
 
     //division with array length
-    for( unsigned i=0; i<n; i++ ) data[i] /= static_cast<int>( n );
+    for ( unsigned i=0; i<n; i++ ) data[i] /= static_cast<int>( n );
 }
 
 
