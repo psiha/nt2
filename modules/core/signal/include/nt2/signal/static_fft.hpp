@@ -129,6 +129,7 @@ namespace nt2
 // http://web.cs.dal.ca/~jborwein/Preprints/Talks/CARMA-CE/FFT.pdf
 // http://www.mersenneforum.org/showthread.php?t=120&page=2
 // http://www.mersenneforum.org/showthread.php?t=10610&page=3
+// http://web.archive.org/web/19991114214729/http://capella.dur.ac.uk/doug/fourier.html
 
 // Algorithmic improvements:
 //   http://engr.case.edu/leinweber_lawrence/eecs701/Comparison%20of%20DFT%20Algorithms.pdf
@@ -326,6 +327,7 @@ namespace nt2
 // http://code.google.com/p/in-spirit/wiki/ASFFT
 // http://www.kurims.kyoto-u.ac.jp/~ooura
 // http://ffmpeg.org/pipermail/ffmpeg-devel/2009-September/080247.html (AltiVec split radix)
+// http://web.archive.org/web/20020220075109/http://risc1.numis.nwu.edu/ftp/pub/transforms
 // http://vid.ledina.org/homepage/generic_classes/fft.hpp
 // https://github.com/alexbw/iPhoneFFT
 
