@@ -23,8 +23,9 @@
 #include "windows.h"
 #endif
 
-#include <cstdlib>
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 #if defined( BOOST_SIMD_HAS_LRB_SUPPORT ) || defined( BOOST_SIMD_HAS_AVX_SUPPORT )
@@ -35,27 +36,29 @@ typedef float T;
 
 namespace constants
 {
-  static std::size_t const minimum_dft_log = 5;
-  static std::size_t const maximum_dft_log = 14;
+  static std::uint8_t  const minimum_dft_log = 5;
+  static std::uint8_t  const maximum_dft_log = 14;
 
-  static std::size_t const minimum_dft_size = 1 << minimum_dft_log;
-  static std::size_t const maximum_dft_size = 1 << maximum_dft_log;
+  static std::uint16_t const minimum_dft_size = 1 << minimum_dft_log;
+  static std::uint16_t const maximum_dft_size = 1 << maximum_dft_log;
 
   static T const test_data_range_minimum = -1;
   static T const test_data_range_maximum = +1;
 }
 
-typedef std::vector<T, boost::simd::allocator<T> > dynamic_aligned_array;
-typedef nt2::static_fft < constants::minimum_dft_size
-                        , constants::maximum_dft_size
-                        , T>                       FFT;
+using dynamic_aligned_array = std::vector<T, boost::simd::allocator<T>>;
+using FFT = nt2::static_fft<constants::minimum_dft_size
+                          , constants::maximum_dft_size
+                          , T>;
 
 //==============================================================================
 // Base Real FFT Experiment
 //==============================================================================
 struct real_fft
 {
-  real_fft( std::size_t n )
+  using size_type = std::uint16_t;
+
+  real_fft( size_type n )
           : size_(n)
           , real_time_data_(size_)
           , real_frequency_data_(size_/2+1)
@@ -72,14 +75,14 @@ struct real_fft
               );
   }
 
-  std::size_t size() const { return size_; }
+  size_type size() const { return size_; }
 
   friend std::ostream& operator<<(std::ostream& os, real_fft const& p)
   {
     return os << "(" << p.size_ << ")";
   }
 
-  std::size_t           size_;
+  size_type             size_;
   dynamic_aligned_array real_time_data_;
   dynamic_aligned_array real_frequency_data_;
   dynamic_aligned_array imag_frequency_data_;
@@ -90,7 +93,9 @@ struct real_fft
 //==============================================================================
 struct complex_fft
 {
-  complex_fft ( std::size_t n )
+  using size_type = std::uint16_t;
+
+  complex_fft ( size_type n )
               : size_(n)
               , real_data_(size_)
               , imag_data_(size_)
@@ -106,14 +111,14 @@ struct complex_fft
               );
   }
 
-  std::size_t size() const { return size_*2; }
+  size_type size() const { return size_*2; }
 
   friend std::ostream& operator<<(std::ostream& os, complex_fft const& p)
   {
     return os << "(" << p.size_ << ")";
   }
 
-  std::size_t           size_;
+  size_type              size_;
   dynamic_aligned_array real_data_;
   dynamic_aligned_array imag_data_;
 };

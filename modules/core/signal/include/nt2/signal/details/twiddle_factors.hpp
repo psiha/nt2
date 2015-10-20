@@ -34,7 +34,9 @@
 #include <boost/preprocessor/repetition/repeat.hpp>
 #include <boost/preprocessor/repetition/repeat_from_to.hpp>
 
-#include <math.h>
+#include <array>
+#include <cmath>
+#include <cstdint>
 //------------------------------------------------------------------------------
 namespace nt2
 {
@@ -63,10 +65,9 @@ template
 >
 struct twiddles_interleaved;
 {
-    typedef
+    using factors_t =
         BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT )
-        boost::array<twiddle_pair<T> const, fft_size / data_vector_size>
-    factors_t;
+        std::array<twiddle_pair<T> const, fft_size / data_vector_size>;
     static factors_t const factors;
 };
 */
@@ -85,7 +86,7 @@ struct twiddles_interleaved;
 
 namespace detail
 {
-    typedef long double long_double_t;
+    using long_double_t = long double;
 
     ////////////////////////////////////////////////////////////////////////////
     // Twiddle calculator implementations.
@@ -135,7 +136,7 @@ namespace detail
             long_double_t const start_value( index * omega );
             long_double_t const increment  (         omega );
 
-            typedef typename Vector::value_type scalar_t;
+            using scalar_t = typename Vector::value_type;
             Vector const result ( boost::simd::enumerate<Vector>( static_cast<scalar_t>( start_value ), static_cast<scalar_t>( increment ) ) );
             BOOST_ASSERT( result[ Vector::static_size - 1 ] <= omega_scale * Impl::full_circle() / 4 );
             return result;
@@ -170,7 +171,7 @@ namespace detail
         template <typename Vector>
         static BOOST_FORCEINLINE BOOST_COLD Vector sincos( input_t const & input, Vector & cosine )
         {
-            typedef typename Vector::value_type scalar_t;
+            using scalar_t = typename Vector::value_type;
 
             long_double_t const omega_scale( input.omega_scale );
             long_double_t const N          ( input.N           );
@@ -288,14 +289,14 @@ namespace detail
         /// completely undefined for templates).
         ///                                   (18.07.2012.) (Domagoj Saric)
         twiddle_pair<Vector> * BOOST_DISPATCH_RESTRICT const p_twiddles,
-        unsigned int                                   const N_int,
-        unsigned int                                   const stride,
-        unsigned int                                   const omega_scale_int,
-        unsigned int                                   const start_index
+        std::uint16_t                                  const N_int,
+        std::uint8_t                                   const stride,
+        std::uint8_t                                   const omega_scale_int,
+        std::uint16_t                                  const start_index
     )
     {
     #if defined( _MSC_VER ) && ( defined( _M_IX86 ) /*...mrmlj...assertion failure in the CRT?...|| defined( _M_AMD64 )*/ || defined( _M_IA64 ) )
-        unsigned int const current_precision( ::_controlfp( _PC_64, _MCW_PC ) );
+        auto const current_precision( ::_controlfp( _PC_64, _MCW_PC ) );
     #endif // _MSC_VER
 
         twiddle_pair<Vector> * BOOST_DISPATCH_RESTRICT p_w( p_twiddles );
@@ -314,8 +315,8 @@ namespace detail
         long_double_t const N          ( static_cast<int>( N_int           ) );
         long_double_t const omega_scale( static_cast<int>( omega_scale_int ) );
 
-        unsigned       i        ( start_index             );
-        unsigned const end_index( N_int / 4 + start_index );
+        std::uint16_t       i        ( start_index             );
+        std::uint16_t const end_index( N_int / 4 + start_index );
         while ( i < end_index )
         {
             /// \note The various calculator implementations approximately rank
@@ -330,9 +331,9 @@ namespace detail
             /// -ffast-math and emulation (tested with x86 and ARM CPUs).
             ///                               (06.11.2013.) (Domagoj Saric)
         #if defined( __FAST_MATH__ ) && !defined( BOOST_SIMD_DETECTED )
-            typedef hardware_or_crt impl;
+            using impl = hardware_or_crt;
         #else
-            typedef pies            impl;
+            using impl = pies;
         #endif // __FAST_MATH__
 
             p_w->wi = impl::sincos( impl::generate_input<Vector>( i, omega_scale, N ), p_w->wr ) ^ Mzero<Vector>();
@@ -388,23 +389,23 @@ namespace detail
     template <> struct gen_seq<1> : seq<0> {};
 
     template <typename Init, typename Vector, typename> struct array_aux;
-    template <typename Init, typename Vector, boost::uint16_t... Indices>
+    template <typename Init, typename Vector, std::uint16_t... Indices>
     struct array_aux<Init, Vector, seq<Indices...>>
     {
-        static boost::uint16_t const N = sizeof...( Indices );
-        typedef
-            boost::array
+        static std::uint16_t const N = sizeof...( Indices );
+        using factors_t =
+            std::array
             <
                 split_radix_twiddles<typename boost::simd::meta::compiler_vector<Vector>::type> const,
                 N
-            > factors_t;
+            >;
 
-        typedef BOOST_SIMD_ALIGNED_TYPE_ON( factors_t, 64 ) cache_aligned_factors_t;
+        using cache_aligned_factors_t = BOOST_SIMD_ALIGNED_TYPE_ON( factors_t, 64 );
 
         static cache_aligned_factors_t const factors;
     }; // struct array_aux
 
-    template <typename Init, typename Vector, boost::uint16_t... Indices>
+    template <typename Init, typename Vector, std::uint16_t... Indices>
     typename array_aux<Init, Vector, seq<Indices...>>::cache_aligned_factors_t const
         array_aux<Init, Vector, seq<Indices...>>::factors = { { Init:: template value<Indices>()... } };
 
@@ -432,8 +433,8 @@ namespace detail
                 /20/21))))))))))
             );
     }
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin_aux( long double const x                              ) { return negsin_aux( x, x * x  ); }
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin    ( boost::uint16_t const i, long double const omega ) { return negsin_aux( i * omega ); }
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin_aux( long double const x                            ) { return negsin_aux( x, x * x  ); }
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin    ( std::uint16_t const i, long double const omega ) { return negsin_aux( i * omega ); }
 
 
     BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos_aux( long double const xx )
@@ -447,17 +448,17 @@ namespace detail
             (1-xx/21/22*(1-xx/23/24
             )))))))))));
     }
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos( boost::uint16_t const i, long double const omega ) { return cos_aux( i * i * omega * omega ); }
+    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos( std::uint16_t const i, long double const omega ) { return cos_aux( i * i * omega * omega ); }
 
-    template <boost::uint16_t N, typename Vector>
+    template <std::uint16_t N, typename Vector>
     struct twiddle_calculator
     {
         static BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR o() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L / N; }
 
-        template <boost::uint16_t index>
+        template <std::uint16_t index>
         static BOOST_FORCEINLINE split_radix_twiddles<typename boost::simd::meta::compiler_vector<Vector>::type> BOOST_CONSTEXPR BOOST_FASTCALL value()
         {
-            boost::uint16_t BOOST_CONSTEXPR_OR_CONST i    ( index * boost::simd::meta::cardinal_of<Vector>::value );
+            std::uint16_t BOOST_CONSTEXPR_OR_CONST i    ( index * boost::simd::meta::cardinal_of<Vector>::value );
             auto            BOOST_CONSTEXPR_OR_CONST omega( o()                                                   );
             return
             {
@@ -479,7 +480,7 @@ namespace detail
     {
         static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors()
         {
-            return reinterpret_cast<split_radix_twiddles<Vector> const *>( static_twiddle_holder::array_aux::factors.begin() );
+            return reinterpret_cast<split_radix_twiddles<Vector> const *>( &static_twiddle_holder::array_aux::factors[ 0 ] );
         }
     }; // static_twiddle_holder
 
@@ -487,11 +488,11 @@ namespace detail
     template <unsigned N, typename Vector>
     struct runtime_twiddle_holder
     {
-        typedef typename boost::simd::meta::vector_of
+        using full_vector_t = typename boost::simd::meta::vector_of
         <
             typename boost::simd::meta::scalar_of  <Vector>::type,
                      boost::simd::meta::cardinal_of<Vector>::value
-        >::type full_vector_t;
+        >::type;
 
         struct BOOST_SIMD_ALIGN_ON( 64 ) cache_aligned_factors_t
         {
@@ -501,19 +502,17 @@ namespace detail
                 calculate_twiddles<full_vector_t>( reinterpret_cast<twiddle_pair<full_vector_t> *>( &factors.front().w3 ), N, 2, 3, 0 );
             }
 
-            typedef boost::array
+            using factors_t = std::array
                 <
                     split_radix_twiddles<Vector> /*const*/,
                     N / 4 / full_vector_t::static_size
-                >
-                factors_t;
-
+                >;
             factors_t factors;
         }; // cache_aligned_factors_t
 
         static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors()
         {
-            return storage.factors.begin();
+            return &storage.factors[ 0 ];
         }
 
         static cache_aligned_factors_t const storage;
@@ -530,15 +529,14 @@ namespace detail
             calculate_twiddles<Vector>( &factors.front(), N, 1, 1, 1 );
         }
 
-        typedef
-            boost::array
+        using factors_t =
+            std::array
             <
                 twiddle_pair<Vector> /*const*/,
                 N / 4 / Vector::static_size
-            >
-            factors_t;
+            >;
 
-        typedef BOOST_SIMD_ALIGNED_TYPE_ON( factors_t, 64 ) cache_aligned_factors_t;
+        using cache_aligned_factors_t = BOOST_SIMD_ALIGNED_TYPE_ON( factors_t, 64 );
 
         cache_aligned_factors_t /*const*/ factors;
     }; // struct real_separation_twiddles_holder
@@ -560,7 +558,7 @@ public:
     static BOOST_SIMD_ALIGNED_TYPE_ON( twiddle_pair<Vector>, 64 ) const * factors() { return twiddles_.factors.begin(); }
 
 private:
-    typedef detail::real_separation_twiddles_holder<Vector, N> twiddle_holder;
+    using twiddle_holder = detail::real_separation_twiddles_holder<Vector, N>;
     static twiddle_holder const twiddles_;
 };
 
@@ -626,7 +624,7 @@ struct real_twiddles
 {
     static float const * factors() { return factors_.begin(); }
 
-    typedef BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT ) detail::twiddle<static_cosine, N, N, Stride, T> factors_t;
+    using factors_t = BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT ) detail::twiddle<static_cosine, N, N, Stride, T>;
     static factors_t const factors_;
 };
 
@@ -638,7 +636,7 @@ struct imag_twiddles
 {
     static float const * factors() { return factors_.begin(); }
 
-    typedef BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT ) detail::twiddle<static_sine, N, N, Stride, T> factors_t;
+    using factors_t = BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT ) detail::twiddle<static_sine, N, N, Stride, T>;
     static factors_t const factors_;
 };
 
@@ -671,13 +669,12 @@ template <typename T>                                                           
 struct twiddles<fft_size, stride, T>                                                       \
 {                                                                                          \
     static std::size_t const data_vector_size = twiddle_pair<T>::vector_t::static_size;    \
-    typedef BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT )                             \
-    boost::array                                                                           \
+    using factors_t = BOOST_SIMD_ALIGN_ON( BOOST_SIMD_CONFIG_ALIGNMENT )                   \
+    std::array                                                                             \
     <                                                                                      \
         twiddle_pair<T> const,                                                             \
         fft_size / stride / data_vector_size                                               \
-    >                                                                                      \
-    factors_t;                                                                             \
+    >;                                                                                     \
     static factors_t const factors;                                                        \
 };                                                                                         \
                                                                                            \
