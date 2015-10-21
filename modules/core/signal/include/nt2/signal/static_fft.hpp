@@ -88,11 +88,6 @@ namespace nt2
 {
 //------------------------------------------------------------------------------
 
-/// \note
-///   A work-in-progress implementation of a "partially compile-time"
-/// power-of-two FFT.
-///                                           (13.02.2012.) (Domagoj Saric)
-
 // Source Dr. Dobbs article.
 // http://drdobbs.com/cpp/199500857
 // http://drdobbs.com/cpp/199702312
@@ -160,8 +155,8 @@ namespace nt2
 //   http://en.wikipedia.org/wiki/Bruun's_FFT_algorithm
 //   http://infoscience.epfl.ch/record/33931/files/VetterliN84.pdf?version=1
 //   http://lcav.epfl.ch/people/martin.vetterli
-//   http://fmi.spiruharet.ro/bodorin/articles/brdfpvdro.pdf (bit reversal)
 //   http://www.es.isy.liu.se/publications/papers_and_reports/2002/Weidong_SSoCC02.pdf
+//   http://edp.org/work/Construction.pdf Construction of a High-Performance FFT
 // - split/higher radix FFT
 //   http://en.wikipedia.org/wiki/Split-radix_FFT_algorithm
 //   http://cr.yp.to/bib/entries.html
@@ -263,11 +258,14 @@ namespace nt2
 //   http://vgrads.rice.edu/publications/pdfs/Dissertation_Ayaz.pdf
 //   http://books.google.hr/books?id=dQpi46dLJ8gC&pg=PA135&lpg=PA135&dq=fft+fast+data+access+pattern&source=bl&ots=Cmr0aZNiRb&sig=4s1rYTNq-ysXgUAIcNfyPeA1p04&hl=hr&sa=X&ei=q8XpT4yDOM6L4gSfn5DrDQ&sqi=2&ved=0CEYQ6AEwAA#v=onepage&q=fft%20fast%20data%20access%20pattern&f=false
 // - FFT specific
-//   http://researchcommons.waikato.ac.nz/bitstream/handle/10289/6417/thesis.pdf FFT@SIMD Anthony Blake PhD thesis
+//   Computing the fast Fourier transform on SIMD microprocessors [Anthony Blake]
+//     http://researchcommons.waikato.ac.nz/bitstream/handle/10289/6417/thesis.pdf
+//     http://cnx.org/contents/8364463c-d5e7-4617-b892-fc2b38f60a59@2.2
 //   http://cache.freescale.com/files/32bit/doc/app_note/AN2115.pdf (AltiVec)
 //   https://sites.google.com/a/istec.net/prodrig/Home/pubs (near the bottom: SIMD-FFT)
 //   http://www.ams.org/journals/mcom/1993-60-201/S0025-5718-1993-1159169-0/home.html (FMA)
 //   http://ipdps.cc.gatech.edu/1997/s8/310.pdf (check out the reference to FFT in section 2.1)
+//   https://www.ideals.illinois.edu/bitstream/handle/2142/44116/Alexander_Yee.pdf?sequence=1 A FASTER FFT IN THE MID-WEST [Alexander Jih-Hing Yee], @locality
 //   http://users.ece.cmu.edu/~franzf/papers/msc-franchetti.pdf
 //   http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.49.7995
 //   http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.184.5514
@@ -297,6 +295,7 @@ namespace nt2
 
 // Code:
 // FFTW         http://www.fftw.org
+// FFTS         https://github.com/anthonix/ffts
 // UHFFT        http://www2.cs.uh.edu/~ayaz/uhfft http://www.tlc2.uh.edu/Poster/Rschday_posters/Johnsson_group/UHFFT%202.0
 // SPIRAL       http://www.spiral.net
 // SFFT         http://cnx.org/content/col11438/latest
@@ -1179,7 +1178,7 @@ namespace details
     // http://graphics.stanford.edu/~seander/bithacks.html#BitReverseTable
     // http://aggregate.org/MAGIC/#Bit Reversal
     // http://stackoverflow.com/questions/932079/in-place-bit-reversed-shuffle-on-an-array
-    static BOOST_SIMD_ALIGN_ON( 64 ) std::uint8_t const bit_reverse_table[ 256 ] =
+    static BOOST_SIMD_ALIGN_ON( 64 ) std::uint8_t BOOST_CONSTEXPR_OR_CONST bit_reverse_table[ 256 ] =
     {
     #   define R2(n)    n ,    n + 2*64 ,    n + 1*64 ,    n + 3*64
     #   define R4(n) R2(n), R2(n + 2*16), R2(n + 1*16), R2(n + 3*16)
@@ -1262,9 +1261,16 @@ namespace details
     /// \param valid_bits - maximum number of bits valid in FFT bin indices
     ///                     (basically the FFT size expressed as 2^valid_bits)
     ////////////////////////////////////////////////////////////////////////////
-    /// A Super-Efficient Adaptable Bit-Reversal Algorithm for Multithreaded
-    /// Architectures
-    /// http://www.idi.ntnu.no/~janchris/ipdps09.pdf
+    /// - http://programming.sirrida.de/bit_perm.html#general_reverse_bits
+    /// - A Super-Efficient Adaptable Bit-Reversal Algorithm for Multithreaded
+    ///   Architectures http://www.idi.ntnu.no/~janchris/ipdps09.pdf
+    /// - fxtbook/Jork Arndt "Algorithms for programmers", revbin permutation
+    /// - http://www.codeproject.com/Articles/9388/How-to-implement-the-FFT-algorithm
+    /// - The Discrete Fourier Transform (Bit Reversal Algorithm) [Sundararajan]
+    /// - https://www.ideals.illinois.edu/bitstream/handle/2142/44116/Alexander_Yee.pdf?sequence=1 Fast Bit-Reversal
+    /// - http://lmrec.org/bodorin/articles/brdfpvdro.pdf Bit Reversal through
+    ///   Direct Fourier Permutation Method and Vectorial Digit Reversal
+    ///   Generalization
     ///
     /// \note KissFFT doesn't seem to have a separate scrambling/bit reversal
     /// pass (investigate). See this KissFFT vs FFTW discussion
@@ -1337,10 +1343,6 @@ namespace details
             {
                 swap( p_reals, p_imags, even_i, even_j );
                 BOOST_ASSERT( even_j < half_N );
-                /// \note See
-                ///  - fxtbook/Jork Arndt "Algorithms for programmers", revbin permutation
-                ///  - http://www.codeproject.com/Articles/9388/How-to-implement-the-FFT-algorithm
-                ///                           (16.05.2012.) (Domagoj Saric)
                 /// \note The mirrored indices can be calculated by xoring
                 /// instead of subtracting (( N - 1 ) ^ i == N - 1 - i) this
                 /// however seems slightly slower (MSVC10+i5).
@@ -1356,7 +1358,7 @@ namespace details
 
 #if 0 // disabled/unused
     inline
-    void scramble2( BOOST_SIMD_ALIGNED_TYPE( float ) * const data, std::uint8_t const valid_bits )
+    void scramble2( float * const data, std::uint8_t const valid_bits )
     {
         // http://www.katjaas.nl/bitreversal/bitreversal.html
         //...zzz...doesn't work?
@@ -1392,7 +1394,7 @@ namespace details
     }
 
     inline
-    void scramble3( BOOST_SIMD_ALIGNED_TYPE( float ) * const data, std::uint8_t const valid_bits )
+    void scramble3( float * const data, std::uint8_t const valid_bits )
     {
         // http://caladan.nanosoft.ca/c4/software/bitsort.php (seems slower than scramble1)
         reim_pair_t * BOOST_DISPATCH_RESTRICT const p_reim_pairs( reinterpret_cast<reim_pair_t *>( data ) );
