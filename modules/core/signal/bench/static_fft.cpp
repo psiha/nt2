@@ -24,7 +24,7 @@ using namespace nt2::bench;
 //==============================================================================
 struct fft_forward : complex_fft
 {
-  fft_forward ( std::size_t n ) : complex_fft(n) {}
+  fft_forward ( size_type n ) : complex_fft(n) {}
 
   void operator()()
   {
@@ -49,7 +49,7 @@ NT2_REGISTER_BENCHMARK( fft_forward )
 //==============================================================================
 struct fft_inverse : complex_fft
 {
-  fft_inverse ( std::size_t n ) : complex_fft(n) {}
+  fft_inverse ( size_type n ) : complex_fft(n) {}
 
   void operator()()
   {
@@ -74,7 +74,7 @@ NT2_REGISTER_BENCHMARK( fft_inverse )
 //==============================================================================
 struct fft_real_forward : real_fft
 {
-  fft_real_forward( std::size_t n ) : real_fft(n) { }
+  fft_real_forward( size_type n ) : real_fft(n) { }
 
   void operator()()
   {
@@ -103,7 +103,7 @@ NT2_REGISTER_BENCHMARK( fft_real_forward )
 //==============================================================================
 struct fft_real_inverse : real_fft
 {
-  fft_real_inverse( std::size_t n ) : real_fft(n) {}
+  fft_real_inverse( size_type n ) : real_fft(n) {}
 
   void operator()()
   {
