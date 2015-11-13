@@ -52,12 +52,19 @@
 #include <boost/simd/include/functions/simd/repeat_upper_half.hpp> //...mrmlj...<-
 #include <boost/simd/include/functions/simd/reverse.hpp>
 #include <boost/simd/include/functions/simd/unary_minus.hpp>
+#include <boost/simd/memory/functions/aligned_store.hpp>
 #include <boost/simd/memory/functions/load.hpp>
 #include <boost/simd/memory/functions/store.hpp>
 #include <boost/simd/memory/prefetch.hpp>
+#if !NT2_FFT_CLASSIC_SPLIT_RADIX
+#include <boost/simd/preprocessor/stack_buffer.hpp>
+#endif // !NT2_FFT_CLASSIC_SPLIT_RADIX
 #include <boost/simd/sdk/config/arch.hpp>
 #include <boost/simd/sdk/simd/extensions.hpp>
 #include <boost/simd/sdk/simd/native.hpp>
+#include <boost/simd/swar/functions/interleave_even.hpp>
+#include <boost/simd/swar/functions/split_low.hpp>
+#include <boost/simd/swar/functions/split_high.hpp>
 #include <boost/simd/swar/functions/details/shuffle.hpp> //...mrmlj...should be ported to use the public shuffle...
 
 
@@ -105,6 +112,7 @@ namespace nt2
 
 // General DFT/FFT information and tutorials:
 // http://www.katjaas.nl/fourier/fourier.html
+// http://jackschaedler.github.io/circles-sines-signals
 // http://altdevblogaday.com/2011/05/17/understanding-the-fourier-transform
 // http://cnx.org/content/m16334/latest/?collection=col10550/latest
 // http://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
@@ -129,6 +137,7 @@ namespace nt2
 
 // Algorithmic improvements:
 //   http://engr.case.edu/leinweber_lawrence/eecs701/Comparison%20of%20DFT%20Algorithms.pdf
+//   http://www.cypress.com/file/55401/download A General Comparison Of FFT Algorithms [Manish Soni, Padma Kunthe]
 //   http://cnx.org/content/col11438/latest
 //   http://cr.yp.to/arith/tangentfft-20070919.pdf
 //   http://liu.diva-portal.org/smash/get/diva2:490459/FULLTEXT02
@@ -157,8 +166,10 @@ namespace nt2
 //   http://lcav.epfl.ch/people/martin.vetterli
 //   http://www.es.isy.liu.se/publications/papers_and_reports/2002/Weidong_SSoCC02.pdf
 //   http://edp.org/work/Construction.pdf Construction of a High-Performance FFT
+//   http://iccd.et.tudelft.nl/Proceedings/2007/Papers/1.1.1.pdf Twiddle Factor Transformation for Pipelined FFT Processing
 // - split/higher radix FFT
 //   http://en.wikipedia.org/wiki/Split-radix_FFT_algorithm
+//   http://wn.com/Split_Radix_Fft_Algorithm
 //   http://cr.yp.to/bib/entries.html
 //   http://cr.yp.to/bib/1984/duhamel.html
 //   http://cr.yp.to/bib/1986/duhamel.html
@@ -166,7 +177,6 @@ namespace nt2
 //   http://cnx.org/content/m12031/latest
 //   http://www.fftw.org/newsplit.pdf
 //   https://www.deepdyve.com/lp/institute-of-electrical-and-electronics-engineers/optimization-of-conjugate-pair-split-radix-fft-algorithm-for-simd-aMkpTWuQml (Stanislav Ocovaj, Zeljko Lukac)
-//   http://groups.yahoo.com/group/pi-hacks/message/747
 //   http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.59.3006&rep=rep1&type=pdf (FFTW)
 //   http://www.ces.clemson.edu/~janoski/reu/2008/FFT-book.pdf
 //   http://cr.yp.to/f2mult/mateer-thesis.pdf
@@ -180,7 +190,7 @@ namespace nt2
 //   http://cr.yp.to/bib/1968/bergland-8.html
 //   http://65.54.113.26/Publication/1837187/an-efficient-split-radix-fft-algorithm
 //   http://www.libsou.com/pdf/01625937.pdf
-//   http://wn.com/Split_Radix_Fft_Algorithm
+//   http://groups.yahoo.com/group/pi-hacks/message/747
 //   http://www.cs.newpaltz.edu/~lik/publications/Weihua-Zheng-IEEE-TSP-2014.pdf Scaled radix 2/8 FFT
 // - generic "polymorphic" radix-n framework:
 //   http://osl.iu.edu/publications/prints/2002/zalewski_algorithms_2002.pdf
@@ -292,6 +302,9 @@ namespace nt2
 //   http://dl.acm.org/citation.cfm?id=1775222&bnc=1
 //   Tzou, K.-H.; Morgan, N.P.; , "A fast pipelined DFT processor and its programming consideration," Electronic Circuits and Systems, IEE Proceedings G , vol.132, no.6, pp.273-276, December 1985
 //   H. L. Gorginsky and G. A. Works, "A pipeline fast Fourier transform," IEEE Trans. Comput., vol. C-19, pp. 1015-1019, Nov. 1970.
+// - GPU
+//   http://research.microsoft.com/pubs/70576/tr-2008-62.pdf Fast computation of general Fourier transforms on GPUs
+//   http://stackoverflow.com/questions/16320860/higher-radix-or-better-formulation-for-stockham-fft
 
 // Code:
 // FFTW         http://www.fftw.org
@@ -304,7 +317,8 @@ namespace nt2
 // PFFFT        https://bitbucket.org/jpommier/pffft
 // RenderScript https://github.com/nesl/renderScriptFFT
 // ARM Ne10     http://projectne10.github.io/Ne10 http://community.arm.com/groups/android-community/blog/2013/12/18/projectne10-fft-is-updated
-// clFFT        https://github.com/clMathLibraries/clFFT (http://developer.amd.com/tools-and-sdks/open-source -> clMath)
+// clFFT        https://github.com/clMathLibraries/clFFT (http://developer.amd.com/tools-and-sdks/open-source -> clMath) (Google hate https://code.google.com/p/android/issues/detail?id=36361)
+// cuFFT        https://developer.nvidia.com/cufft
 //
 // http://www.jjj.de/fxt/#fxt
 // http://star-www.rl.ac.uk/star/docs/sun194.htx/node8.html
@@ -476,7 +490,7 @@ namespace details
         using first_step  = step_decimation;
         using second_step = step_butterfly ;
 
-        template <class Vector>
+        template <class Vector> BOOST_NOTHROW_NOALIAS
         static void BOOST_FASTCALL butterfly
         (
             Vector & r0, Vector & i0,
@@ -486,20 +500,19 @@ namespace details
             split_radix_twiddles<Vector> const & w
         );
 
-        template <typename Vector>
+        template <typename Vector> BOOST_NOTHROW_NOALIAS
         static void BOOST_FASTCALL dft_4
         (
-            Vector const & real_in , Vector const & imag_in ,
-            Vector       & real_out, Vector       & imag_out
+            Vector & real, Vector & imag
         );
 
-        template <typename Vector>
+        template <typename Vector> BOOST_NOTHROW_NOALIAS
         static void BOOST_FASTCALL dft_8_in_place
         (
             Vector & real0, Vector & imag0,
             Vector & real1, Vector & imag1
         );
-    };
+    }; // struct dit
 
 
     struct dif
@@ -507,7 +520,7 @@ namespace details
         using first_step  = step_butterfly ;
         using second_step = step_decimation;
 
-        template <class Vector>
+        template <class Vector> BOOST_NOTHROW_NOALIAS
         static void BOOST_FASTCALL butterfly
         (
             Vector & r0, Vector & i0,
@@ -517,20 +530,19 @@ namespace details
             split_radix_twiddles<Vector> const & w
         );
 
-        template <typename Vector>
+        template <typename Vector> BOOST_NOTHROW_NOALIAS
         static void BOOST_FASTCALL dft_4
         (
-            Vector const & real_in , Vector const & imag_in ,
-            Vector       & real_out, Vector       & imag_out
+            Vector & real, Vector & imag
         );
 
-        template <typename Vector>
+        template <typename Vector> BOOST_NOTHROW_NOALIAS
         static void BOOST_FASTCALL dft_8_in_place
         (
             Vector & real0, Vector & imag0,
             Vector & real1, Vector & imag1
         );
-    };
+    }; // struct dif
 
     ////////////////////////////////////////////////////////////////////////////
     /// Contexts (different FFT implementations)
@@ -629,8 +641,11 @@ namespace details
         using parameter0_t = vector_t * BOOST_DISPATCH_RESTRICT;
         using parameter1_t = vector_t * BOOST_DISPATCH_RESTRICT;
 
-        using decimation_t = dif;
-      //using decimation_t = dit; //...zzz...not yet fully ported to the split-radix algorithm...
+    #if NT2_FFT_CLASSIC_SPLIT_RADIX
+      using decimation_t = dif;
+    #else
+      using decimation_t = dit;
+    #endif // NT2_FFT_CLASSIC_SPLIT_RADIX
 
         template <std::uint8_t RealP>
         struct complex_P : std::integral_constant<std::uint8_t, RealP - 1> {};
@@ -1168,6 +1183,36 @@ namespace details
 {
     ////////////////////////////////////////////////////////////////////////////
     //
+    // scramble()
+    // ----------
+    //
+    ////////////////////////////////////////////////////////////////////////////
+    /// \brief Performs the bit reversal pass.
+    /// \param data       - time domain data
+    /// \param valid_bits - maximum number of bits valid in FFT bin indices
+    ///                     (basically the FFT size expressed as 2^valid_bits)
+    ////////////////////////////////////////////////////////////////////////////
+    /// - http://programming.sirrida.de/bit_perm.html#general_reverse_bits
+    /// - A Super-Efficient Adaptable Bit-Reversal Algorithm for Multithreaded
+    ///   Architectures http://www.idi.ntnu.no/~janchris/ipdps09.pdf
+    /// - fxtbook/Jork Arndt "Algorithms for programmers", revbin permutation
+    /// - http://www.codeproject.com/Articles/9388/How-to-implement-the-FFT-algorithm
+    /// - The Discrete Fourier Transform (Bit Reversal Algorithm) [Sundararajan]
+    /// - https://www.ideals.illinois.edu/bitstream/handle/2142/44116/Alexander_Yee.pdf?sequence=1 Fast Bit-Reversal
+    /// - http://lmrec.org/bodorin/articles/brdfpvdro.pdf Bit Reversal through
+    ///   Direct Fourier Permutation Method and Vectorial Digit Reversal
+    ///   Generalization
+    ///
+    /// \note KissFFT doesn't seem to have a separate scrambling/bit reversal
+    /// pass (investigate). See this KissFFT vs FFTW discussion
+    /// http://www.dsprelated.com/showmessage/10150/1.php for notes about the
+    /// scramble and separate passes.
+    ///                                       (29.02.2012.) (Domagoj Saric)
+    ////////////////////////////////////////////////////////////////////////////
+
+#if NT2_FFT_CLASSIC_SPLIT_RADIX
+    ////////////////////////////////////////////////////////////////////////////
+    //
     // reverse_bits()
     // --------------
     //
@@ -1187,6 +1232,7 @@ namespace details
     };
 
     template <std::uint8_t valid_bits>
+    BOOST_CONSTEXPR
     std::uint8_t BOOST_FASTCALL reverse_bits( std::uint8_t const value, std::integral_constant<std::uint8_t, 1> /*number of bytes*/ )
     {
         std::uint8_t const shift_correction  ( 8 - valid_bits                                 );
@@ -1195,6 +1241,7 @@ namespace details
     }
 
     template <std::uint8_t valid_bits>
+    BOOST_CONSTEXPR
     std::uint16_t BOOST_FASTCALL reverse_bits( std::uint16_t const value, std::integral_constant<std::uint8_t, 2> /*number of bytes*/ )
     {
         std::uint8_t const shift_correction_lower(       16 - valid_bits   );
@@ -1249,36 +1296,6 @@ namespace details
         return corrected_bit_reversed_value;
     }
 
-
-    ////////////////////////////////////////////////////////////////////////////
-    //
-    // scramble()
-    // ----------
-    //
-    ////////////////////////////////////////////////////////////////////////////
-    /// \brief Performs the bit reversal pass.
-    /// \param data       - time domain data
-    /// \param valid_bits - maximum number of bits valid in FFT bin indices
-    ///                     (basically the FFT size expressed as 2^valid_bits)
-    ////////////////////////////////////////////////////////////////////////////
-    /// - http://programming.sirrida.de/bit_perm.html#general_reverse_bits
-    /// - A Super-Efficient Adaptable Bit-Reversal Algorithm for Multithreaded
-    ///   Architectures http://www.idi.ntnu.no/~janchris/ipdps09.pdf
-    /// - fxtbook/Jork Arndt "Algorithms for programmers", revbin permutation
-    /// - http://www.codeproject.com/Articles/9388/How-to-implement-the-FFT-algorithm
-    /// - The Discrete Fourier Transform (Bit Reversal Algorithm) [Sundararajan]
-    /// - https://www.ideals.illinois.edu/bitstream/handle/2142/44116/Alexander_Yee.pdf?sequence=1 Fast Bit-Reversal
-    /// - http://lmrec.org/bodorin/articles/brdfpvdro.pdf Bit Reversal through
-    ///   Direct Fourier Permutation Method and Vectorial Digit Reversal
-    ///   Generalization
-    ///
-    /// \note KissFFT doesn't seem to have a separate scrambling/bit reversal
-    /// pass (investigate). See this KissFFT vs FFTW discussion
-    /// http://www.dsprelated.com/showmessage/10150/1.php for notes about the
-    /// scramble and separate passes.
-    ///                                       (29.02.2012.) (Domagoj Saric)
-    ////////////////////////////////////////////////////////////////////////////
-
     using reim_pair_t = double;
 
     void BOOST_FORCEINLINE swap
@@ -1310,6 +1327,203 @@ namespace details
         std::iter_swap( p_left_imag, p_right_imag );
     }
 
+#else // !NT2_FFT_CLASSIC_SPLIT_RADIX
+
+    /// \note Until an analytic formula is devised for conjugate-pair
+    /// split-radix input-output index mapping we have to use brute force - a
+    /// precomputed index LUT.
+    ///                                       (13.11.2015.) (Domagoj Saric)
+    template <std::uint16_t N>
+    struct conjugate_pair_split_radix_index_mapper
+    {
+        //BOOST_FORCEINLINE
+        static BOOST_CONSTEXPR std::uint16_t BOOST_FASTCALL wrap( std::int16_t const index )
+        {
+            return index >= 0 ? ( index ) : ( index + N );
+        }
+    #if 0 // Failed attempt at static initialisation of the indicies arrays: compilers not up to it yet...
+        //BOOST_FORCEINLINE...mrmlj...chokes MSVC12 and Clang 3.6 when used as 'brute force constexpr' for static indicies array initialisation...
+        static BOOST_CONSTEXPR std::uint16_t BOOST_FASTCALL output_index_impl
+        (
+            std::uint16_t const target_index,
+            std:: int16_t const input_index,
+            std::uint16_t const output_index,
+            std::uint16_t const stride,
+            std::uint16_t const length
+        )
+        {
+        #ifdef BOOST_NO_CXX14_CONSTEXPR
+            BOOST_ASSUME( input_index  <   N );
+            BOOST_ASSUME( input_index  > - N );
+            BOOST_ASSUME( output_index <   N );
+        #endif // BOOST_NO_CXX14_CONSTEXPR
+
+            switch ( length )
+            {
+                case 1: if ( wrap( input_index ) == target_index ) return output_index;
+                    return 0;
+                case 2:
+                    if ( wrap( input_index + 0 * stride ) == target_index ) return ( output_index + 0 );
+                    if ( wrap( input_index + 1 * stride ) == target_index ) return ( output_index + 1 );
+                    return 0;
+                default:
+                {
+                    std::uint16_t BOOST_CONSTEXPR_OR_CONST n2      ( output_index_impl( target_index, input_index + 0 * stride, output_index + 0 * length / 2, stride * 2, length / 2 ) ); if ( n2       ) return n2      ;
+                    std::uint16_t BOOST_CONSTEXPR_OR_CONST n4first ( output_index_impl( target_index, input_index + 1 * stride, output_index + 1 * length / 2, stride * 4, length / 4 ) ); if ( n4first  ) return n4first ;
+                    std::uint16_t BOOST_CONSTEXPR_OR_CONST n4second( output_index_impl( target_index, input_index - 1 * stride, output_index + 3 * length / 4, stride * 4, length / 4 ) ); if ( n4second ) return n4second;
+                    return 0;
+                }
+            }
+        }
+        //BOOST_FORCEINLINE
+        static BOOST_CONSTEXPR std::uint16_t BOOST_FASTCALL output_index
+        (
+            std::uint16_t const input_index
+        )
+        {
+            return
+                ( input_index == 0 )
+                    ? 0
+                    : output_index_impl( input_index, 0, 0, 1, N );
+        }
+    #endif // Failed attempt at static initialisation
+    }; // struct conjugate_pair_split_radix_index_mapper
+
+#if defined( BOOST_MSVC )
+    #pragma warning( push )
+    #pragma warning( disable : 4503 ) // Decorated name length exceeded, name was truncated.
+#endif // MSVC
+
+    template <typename> struct permutation_table;
+    template <std::uint16_t... Indices>
+    struct permutation_table<std::index_sequence<Indices...>>
+    {
+        static std::uint16_t const N = sizeof...( Indices );
+
+    #if 0 // why you no work :/
+        permutation_table()
+            : indices
+                {{ conjugate_pair_split_radix_index_mapper<N>::output_index( Indices )... }} {} // MSVC12 and Clang 3.6 choke on this
+                {{ ( output_index<Indices, N>::value )...                                 }} {} // the pre-constexpr TMP approach seems even worse...
+    #endif
+
+        using index_t                 = std::uint16_t; //...mrmlj...deduce required index bits based on N...
+        using indices_t               = std::array<index_t /*const*/, N>;
+        using cache_aligned_indices_t = BOOST_SIMD_ALIGNED_TYPE_ON( indices_t, 64 );
+
+        cache_aligned_indices_t /*const*/ indices;
+    }; // struct permutation_table
+
+    // Dynamic indices array(s) initialiser wrapper (after the failed static-init attempt)
+    template <std::uint16_t N>
+    struct permutation_indices
+    {
+    private:
+        using table  = permutation_table<std::make_index_sequence<N>>;
+        using mapper = conjugate_pair_split_radix_index_mapper<N>;
+
+    public:
+        permutation_indices() { make( 0, 0, 1, N ); }
+
+        static typename table::cache_aligned_indices_t const & indices() { return initialiser.table_.indices; }
+
+    private:
+        static void BOOST_FASTCALL make
+        (
+            std:: int16_t const input_index,
+            std::uint16_t const output_index,
+            std::uint16_t const stride,
+            std::uint16_t const length
+        )
+        {
+            BOOST_ASSUME( input_index  <   N );
+            BOOST_ASSUME( input_index  > - N );
+            BOOST_ASSUME( output_index <   N );
+
+            switch ( length )
+            {
+                case 1:
+                {
+                    initialiser.table_.indices[ mapper::wrap( input_index ) ] = output_index;
+                    break;
+                }
+                case 2:
+                {
+                    initialiser.table_.indices[ mapper::wrap( input_index + 0 * stride ) ] = output_index + 0;
+                    initialiser.table_.indices[ mapper::wrap( input_index + 1 * stride ) ] = output_index + 1;
+                    break;
+                }
+                default:
+                {
+                    make( input_index + 0 * stride, output_index + 0*length/2, stride * 2, length / 2 );
+                    make( input_index + 1 * stride, output_index + 1*length/2, stride * 4, length / 4 );
+                    make( input_index - 1 * stride, output_index + 3*length/4, stride * 4, length / 4 );
+                }
+            }
+        }
+
+        table /*const*/ table_;
+        static permutation_indices /*const*/ initialiser;
+    };
+    template <std::uint16_t N> permutation_indices<N> /*const*/ permutation_indices<N>::initialiser;
+
+    template <typename Scalar> BOOST_NOINLINE
+    void BOOST_FASTCALL scramble_with_indices
+    (
+        Scalar              * BOOST_DISPATCH_RESTRICT const p_reals,
+        Scalar              * BOOST_DISPATCH_RESTRICT const p_imags,
+        Scalar              * BOOST_DISPATCH_RESTRICT const buf,
+        std::uint16_t const * BOOST_DISPATCH_RESTRICT const p_indices,
+        std::uint16_t                                 const N
+    )
+    {
+        BOOST_ASSUME( N % 16 == 0 );
+
+        using vector_t  = boost::simd::native<Scalar       , BOOST_SIMD_DEFAULT_EXTENSION>;
+        using indices_t = boost::simd::native<std::uint16_t, BOOST_SIMD_DEFAULT_EXTENSION>; //...mrmlj...deduce Scalar-width integer...
+
+        vector_t * BOOST_DISPATCH_RESTRICT const data[] = { reinterpret_cast<vector_t *>( p_reals ), reinterpret_cast<vector_t *>( p_imags ) };
+        for ( vector_t * BOOST_DISPATCH_RESTRICT const p_data : data )
+        {
+            // Alexander Yee
+            indices_t const * BOOST_DISPATCH_RESTRICT p_indices0( reinterpret_cast<indices_t const *>( p_indices ) );
+            indices_t const * BOOST_DISPATCH_RESTRICT p_indices1( p_indices0 + N / 2 / indices_t::static_size );
+            vector_t        * BOOST_DISPATCH_RESTRICT p_input0  ( p_data                                   );
+            vector_t        * BOOST_DISPATCH_RESTRICT p_input1  ( p_input0 + N / 2 / vector_t::static_size );
+            std::uint16_t counter( N / vector_t::static_size / /*unroll*/ 4 );
+            while ( counter-- )
+            {
+                auto const input0( *p_input0++ );
+                auto const input1( *p_input0++ );
+                auto const input2( *p_input1++ );
+                auto const input3( *p_input1++ );
+
+                auto const indices0( boost::simd::split_low ( *p_indices0   ) );
+                auto const indices1( boost::simd::split_high( *p_indices0++ ) );
+                auto const indices2( boost::simd::split_low ( *p_indices1   ) );
+                auto const indices3( boost::simd::split_high( *p_indices1++ ) );
+
+            #ifdef BOOST_MSVC // bad scatter codegen for SSE3
+                buf[ indices0[ 0 ] ] = input0[ 0 ]; buf[ indices0[ 1 ] ] = input0[ 1 ]; buf[ indices0[ 2 ] ] = input0[ 2 ]; buf[ indices0[ 3 ] ] = input0[ 3 ];
+                buf[ indices1[ 0 ] ] = input1[ 0 ]; buf[ indices1[ 1 ] ] = input1[ 1 ]; buf[ indices1[ 2 ] ] = input1[ 2 ]; buf[ indices1[ 3 ] ] = input1[ 3 ];
+                buf[ indices2[ 0 ] ] = input2[ 0 ]; buf[ indices2[ 1 ] ] = input2[ 1 ]; buf[ indices2[ 2 ] ] = input2[ 2 ]; buf[ indices2[ 3 ] ] = input2[ 3 ];
+                buf[ indices3[ 0 ] ] = input3[ 0 ]; buf[ indices3[ 1 ] ] = input3[ 1 ]; buf[ indices3[ 2 ] ] = input3[ 2 ]; buf[ indices3[ 3 ] ] = input3[ 3 ];
+            #else
+                boost::simd::aligned_store( input0, buf->data(), indices0 );
+                boost::simd::aligned_store( input1, buf->data(), indices1 );
+                boost::simd::aligned_store( input2, buf->data(), indices2 );
+                boost::simd::aligned_store( input3, buf->data(), indices3 );
+            #endif // BOOST_MSVC
+            }
+        #ifdef BOOST_MSVC
+            std::copy_n( as_vector( buf ), N / vector_t::static_size, p_data );
+        #else
+            std::copy_n(            buf  , N / vector_t::static_size, p_data );
+        #endif // BOOST_MSVC
+        }
+    }
+#endif // NT2_FFT_CLASSIC_SPLIT_RADIX
+
     template <unsigned int valid_bits, typename Scalar>
     void BOOST_FASTCALL scramble1
     (
@@ -1317,9 +1531,10 @@ namespace details
         Scalar * BOOST_DISPATCH_RESTRICT const p_imags
     )
     {
-        using number_of_bytes = std::integral_constant<std::uint8_t, ( ( valid_bits - 1 ) / 8 ) + 1>;
-
         std::uint16_t const N( 1 << valid_bits );
+
+    #if NT2_FFT_CLASSIC_SPLIT_RADIX
+        using number_of_bytes = std::integral_constant<std::uint8_t, ( ( valid_bits - 1 ) / 8 ) + 1>;
 
         std::uint16_t const half_N( N / 2 );
         std::uint16_t i( 1 );
@@ -1351,7 +1566,23 @@ namespace details
             }
             ++i;
         }
+    #else // conjugate-split radix (de)scrambling
+
+        /// \note Conjugate pair 'scrambling' cannot be performed inplace so we
+        /// use a scratch buffer as a first-hand solution. This is of course
+        /// inefficient and should be converted to a proper out-of-place
+        /// operation (e.g. merged with the real-time-domain->fake-complex-data
+        /// transformation pass).
+        ///                                   (13.11.2015.) (Domagoj Saric)
+        BOOST_SIMD_ALIGNED_SCOPED_STACK_BUFFER( buf, Scalar, N );
+        scramble_with_indices( p_reals, p_imags, buf.begin(), &permutation_indices<N>::indices()[ 0 ], N );
+
+    #endif // NT2_FFT_CLASSIC_SPLIT_RADIX
     }
+
+#if defined( BOOST_MSVC )
+    #pragma warning( pop ) // 4503
+#endif // MSVC
 
     template <class T>
     T lastSetBit( T const t ) { return boost::simd::ffs( t ) - 1; }
@@ -1555,14 +1786,17 @@ namespace details
             vector_t const lower_r(                              *p_lower_reals     );
             vector_t const lower_i(                              *p_lower_imags     );
 
+        #if NT2_FFT_CLASSIC_SPLIT_RADIX
             vector_t const wr( p_twiddles->w0.wr ^ twiddle_sign_flipper );
-            vector_t const wi( p_twiddles->w0.wi                        );
+            vector_t const wi( p_twiddles->w0.wi );
+        #else
+            vector_t const wr( p_twiddles->   wr ^ twiddle_sign_flipper );
+            vector_t const wi( p_twiddles->   wi                        );
+        #endif // NT2_FFT_CLASSIC_SPLIT_RADIX
             ++p_twiddles;
 
-            vector_t const h1r( lower_r + upper_r );
-            vector_t const h2i( upper_r - lower_r );
-            vector_t const h2r( lower_i + upper_i );
-            vector_t const h1i( lower_i - upper_i );
+            vector_t const h1r( lower_r + upper_r ); vector_t const h2i( upper_r - lower_r );
+            vector_t const h2r( lower_i + upper_i ); vector_t const h1i( lower_i - upper_i );
 
             vector_t const h_temp_r( ( wr * h2r ) - ( wi * h2i ) );
             vector_t const h_temp_i( ( wr * h2i ) + ( wi * h2r ) );
@@ -1673,10 +1907,8 @@ namespace details
             vector_t const wi( p_twiddles->wi                        );
             boost::simd::prefetch_temporary( ++p_twiddles );
 
-            vector_t const h1r( lower_r + upper_r );
-            vector_t const h1i( lower_i - upper_i );
-            vector_t const h2r( lower_i + upper_i );
-            vector_t const h2i( upper_r - lower_r );
+            vector_t const h1r( lower_r + upper_r ); vector_t const h1i( lower_i - upper_i );
+            vector_t const h2r( lower_i + upper_i ); vector_t const h2i( upper_r - lower_r );
 
             vector_t const h_temp_r( ( wr * h2r ) - ( wi * h2i ) );
             vector_t const h_temp_i( ( wr * h2i ) + ( wi * h2r ) );
@@ -1735,7 +1967,7 @@ namespace details
     #endif // MSVC 64 bit
 
     template <class Decimation, class Context>
-    BOOST_NOINLINE
+    BOOST_NOINLINE BOOST_NOTHROW_NOALIAS
     void BOOST_FASTCALL butterfly_loop
     (
         typename Context::parameter0_t                                 const param0,
@@ -1767,7 +1999,7 @@ namespace details
 
 
     template <class Vector>
-    BOOST_FORCEINLINE
+    BOOST_FORCEINLINE BOOST_NOTHROW_NOALIAS
     void BOOST_FASTCALL dit::butterfly
     (
         Vector & r0_, Vector & i0_,
@@ -1777,47 +2009,37 @@ namespace details
         split_radix_twiddles<Vector> const & w
     )
     {
-        BOOST_ASSERT_MSG( false, "DIT not yet fully ported to the split - radix algorithm..." );
-
         using vector_t = Vector;
 
-        vector_t const w0r( w.w0.wr );
-        vector_t const w0i( w.w0.wi );
-        vector_t const w3r( w.w3.wr );
-        vector_t const w3i( w.w3.wi );
+        vector_t const wr( w.wr );
+        vector_t const wi( w.wi );
 
-        vector_t const r2( r2_ );
-        vector_t const r3( r3_ );
-        vector_t const i2( i2_ );
-        vector_t const i3( i3_ );
+        vector_t const r2( r2_ ); vector_t const i2( i2_ );
+        vector_t const r3( r3_ ); vector_t const i3( i3_ );
 
-        vector_t const temp_r2( ( w0r * r2 ) - ( w0i * i2 ) );
-        vector_t const temp_i2( ( w0i * r2 ) + ( w0r * i2 ) );
-        vector_t const temp_r3( ( w3r * r3 ) - ( w3i * i3 ) );
-        vector_t const temp_i3( ( w3i * r3 ) + ( w3r * i3 ) );
+        vector_t const temp_r2( ( wr * r2 ) - ( wi * i2 ) ); vector_t const temp_i2( ( wi * r2 ) + ( wr * i2 ) );
+        vector_t const temp_r3( ( wr * r3 ) + ( wi * i3 ) ); vector_t const temp_i3( ( wr * i3 ) - ( wi * r3 ) );
 
-        vector_t const t2p3_r( temp_r2 + temp_r3 );
-        vector_t const t2p3_i( temp_i2 + temp_i3 );
-        vector_t const t2m3_r( temp_i3 - temp_i2 );
-        vector_t const t2m3_i( temp_r2 - temp_r3 );
+        vector_t const t2p3_r( temp_r2 + temp_r3 ); vector_t const t2p3_i( temp_i2 + temp_i3 );
+        vector_t const t2m3_r( temp_i3 - temp_i2 ); vector_t const t2m3_i( temp_r2 - temp_r3 );
 
         vector_t const r0( r0_ );
         vector_t const r1( r1_ );
         r0_ = r0 + t2p3_r;
-        r2_ = r0 - t2p3_r;
         r1_ = r1 - t2m3_r;
+        r2_ = r0 - t2p3_r;
         r3_ = r1 + t2m3_r;
 
         vector_t const i0( i0_ );
         vector_t const i1( i1_ );
         i0_ = i0 + t2p3_i;
-        i2_ = i0 - t2p3_i;
         i1_ = i1 - t2m3_i;
+        i2_ = i0 - t2p3_i;
         i3_ = i1 + t2m3_i;
     }
 
     template <class Vector>
-    BOOST_FORCEINLINE
+    BOOST_FORCEINLINE BOOST_NOTHROW_NOALIAS
     void BOOST_FASTCALL dif::butterfly
     (
         Vector & r0_, Vector & i0_,
@@ -1864,177 +2086,78 @@ namespace details
 
 
     template <typename Vector>
-    BOOST_FORCEINLINE
-    void BOOST_FASTCALL dit::dft_4
-    (
-        Vector const & real_in , Vector const & imag_in ,
-        Vector       & real_out, Vector       & imag_out
-    )
+    BOOST_FORCEINLINE BOOST_NOTHROW_NOALIAS
+    void BOOST_FASTCALL dit::dft_4( Vector & real, Vector & imag )
     {
-        //...zzz...still radix-2...:
-
-    /* "text book" version
-        using scalar_t = typename Vector::value_type;
-
-        scalar_t r0( real_in[ 0 ] );
-        scalar_t r1( real_in[ 1 ] );
-        scalar_t r2( real_in[ 2 ] );
-        scalar_t r3( real_in[ 3 ] );
-        scalar_t i0( imag_in[ 0 ] );
-        scalar_t i1( imag_in[ 1 ] );
-        scalar_t i2( imag_in[ 2 ] );
-        scalar_t i3( imag_in[ 3 ] );
-
-        { // lower half (size 2)
-            scalar_t const r0_( r0 );
-            scalar_t const i0_( i0 );
-            scalar_t const r1_( r1 );
-            scalar_t const i1_( i1 );
-            r0 = r0_ + r1_;
-            i0 = i0_ + i1_;
-            r1 = r0_ - r1_;
-            i1 = i0_ - i1_;
-        }
-        { // upper half (size 2)
-            scalar_t const r2_( r2 );
-            scalar_t const i2_( i2 );
-            scalar_t const r3_( r3 );
-            scalar_t const i3_( i3 );
-            r2 =            r2_ + r3_                        ;
-            i2 =            i2_ + i3_                        ;
-            r3 = flip_sign( i2_ - i3_, twiddle_sign_flipper );
-            i3 = flip_sign( r3_ - r2_, twiddle_sign_flipper );
-        }
-
-        {
-            scalar_t const r0_( r0 );
-            scalar_t const i0_( i0 );
-            scalar_t const r2_( r2 );
-            scalar_t const i2_( i2 );
-            r0 = r0_ + r2_;
-            i0 = i0_ + i2_;
-            r2 = r0_ - r2_;
-            i2 = i0_ - i2_;
-        }
-        {
-            scalar_t const r1_( r1 );
-            scalar_t const i1_( i1 );
-            scalar_t const r3_( r3 );
-            scalar_t const i3_( i3 );
-            r1 = r1_ + r3_;
-            i1 = i1_ + i3_;
-            r3 = r1_ - r3_;
-            i3 = i1_ - i3_;
-        }
-
-        real_out[ 0 ] = r0;
-        real_out[ 1 ] = r1;
-        real_out[ 2 ] = r2;
-        real_out[ 3 ] = r3;
-        imag_out[ 0 ] = i0;
-        imag_out[ 1 ] = i1;
-        imag_out[ 2 ] = i2;
-        imag_out[ 3 ] = i3;
-    */
-
-    /// \note The code below (unlike the text-book/cleaner versions above) tries
-    /// to be more optimizer friendly so that it can avoid stack usage with the
-    /// limited x86 SSE register file.
-    ///                                       (07.03.2012.) (Domagoj Saric)
-
-    //...zzz...no separate bit reversing/scrambling pass experimenting...
-    unsigned int const idx0( 0 );
-    unsigned int const idx1( 1 );
-    unsigned int const idx2( 2 );
-    unsigned int const idx3( 3 );
+        using scalar_t = typename boost::dispatch::meta::value_of<Vector>::type;
 
     #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
-        using scalar_t = typename Vector::value_type;
+        using scalar_t = typename boost::dispatch::meta::value_of<Vector>::type;
 
-        scalar_t const r2( real_in[ idx2 ] );
-        scalar_t const r3( real_in[ idx3 ] );
-        scalar_t const r3mr2( r3 - r2 );
-        scalar_t const r2pr3( r2 + r3 );
+        auto const r( reinterpret_cast<float const *>( &real ) );
+        auto const i( reinterpret_cast<float const *>( &imag ) );
+        scalar_t r0( r[ 0 ] ); scalar_t i0( i[ 0 ] );
+        scalar_t r1( r[ 1 ] ); scalar_t i1( i[ 1 ] );
+        scalar_t r2( r[ 2 ] ); scalar_t i2( i[ 2 ] );
+        scalar_t r3( r[ 3 ] ); scalar_t i3( i[ 3 ] );
 
-        scalar_t const i2( imag_in[ idx2 ] );
-        scalar_t const i3( imag_in[ idx3 ] );
-        scalar_t const i2mi3( i2 - i3 );
-        scalar_t const i2pi3( i2 + i3 );
+        { // lower half (size 2)
+            scalar_t const r0_( r0 ); scalar_t const i0_( i0 );
+            scalar_t const r1_( r1 ); scalar_t const i1_( i1 );
+            r0 = r0_ + r1_; i0 = i0_ + i1_;
+            r1 = r0_ - r1_; i1 = i0_ - i1_;
+        }
+        { // upper half DFT1 nop & nop
+            //r2 = r2; i2 = i2;
+            //r3 = r3; i3 = i3;
+        }
 
-        scalar_t const r0( real_in[ idx0 ] );
-        scalar_t const r1( real_in[ idx1 ] );
-        scalar_t const r0pr1( r0 + r1 );
-        scalar_t const r0mr1( r0 - r1 );
-
-        scalar_t const i0( imag_in[ idx0 ] );
-        scalar_t const i1( imag_in[ idx1 ] );
-        scalar_t const i0pi1( i0 + i1 );
-        scalar_t const i0mi1( i0 - i1 );
-
-        real_out[ idx0 ] = r0pr1 + r2pr3;
-        real_out[ idx1 ] = r0mr1 + i2mi3;
-        real_out[ idx2 ] = r0pr1 - r2pr3;
-        real_out[ idx3 ] = r0mr1 - i2mi3;
-
-        imag_out[ idx0 ] = i0pi1 + i2pi3;
-        imag_out[ idx1 ] = i0mi1 + r3mr2;
-        imag_out[ idx2 ] = i0pi1 - i2pi3;
-        imag_out[ idx3 ] = i0mi1 - r3mr2;
-
+        r[ 0 ] = r0 + ( r2 + r3 ); i[ 0 ] = i0 + ( i3 + i2 );
+        r[ 2 ] = r0 - ( r2 + r3 ); i[ 2 ] = i0 - ( i3 + i2 );
+        r[ 1 ] = r1 - ( i3 - i2 ); i[ 1 ] = i1 - ( r2 - r3 );
+        r[ 3 ] = r1 + ( i3 - i2 ); i[ 3 ] = i1 + ( r2 - r3 );
     #else // BOOST_SIMD_DETECTED
         using vector_t = Vector;
 
         using boost::simd::details::shuffle;
         using namespace boost::simd;
 
-        vector_t const odd_negate     ( *sign_flipper<vector_t, false, true , false, true>() );
-        vector_t const negate_last_two( *sign_flipper<vector_t, false, false, true , true>() );
+        using full_vector_t = typename boost::simd::meta::full_vector<vector_t>::type;
+    #ifdef __clang__
+        using vector_f = full_vector_t;
+    #else
+        using vector_f = vector_t;
+    #endif // __clang__
 
-        // Real:
-        vector_t const real( real_in );
+        using boost::simd::details::shuffle;
+        using namespace boost::simd;
 
-        vector_t const r0033( shuffle<idx0, idx0, idx3, idx3>( real ) );
-        vector_t const r1122( shuffle<idx1, idx1, idx2, idx2>( real ) );
+        auto const odd_negate   ( *sign_flipper<vector_t, false, true, false, true >() );
+        auto const negate_middle( *sign_flipper<vector_t, false, true, true , false>() );
 
-        vector_t const r_combined( r0033 + ( r1122 ^ odd_negate ) );
+        auto     const r00i00( shuffle<0, 0, 0, 0>( real, imag ) );
+        vector_f const r11i11( shuffle<1, 1, 1, 1>( real, imag ) );
 
-        vector_t const r_left( repeat_lower_half( r_combined ) );
+        auto const r01i01( r00i00 + ( r11i11 ^ odd_negate ) ); // lower_dft_2
 
-        // Imaginary:
-        vector_t const imag( imag_in );
+        auto     const r22i33( shuffle<2, 2, 3, 3>( real, imag ) );
+        vector_f const r33i22( shuffle<3, 3, 2, 2>( real, imag ) );
+        auto const r2pr3_r2mr3_i3pi2_i3mi2( r22i33 + ( r33i22 ^ odd_negate ) );
 
-        vector_t const i0022( shuffle<idx0, idx0, idx2, idx2>( imag ) );
-        vector_t const i1133( shuffle<idx1, idx1, idx3, idx3>( imag ) );
+        vector_f const r2p3i3m2( shuffle<0, 3, 0, 3>( r2pr3_r2mr3_i3pi2_i3mi2 ) );
+        vector_f const i3p2r2m3( shuffle<2, 1, 2, 1>( r2pr3_r2mr3_i3pi2_i3mi2 ) );
 
-        vector_t const i_combined( i0022 + ( i1133 ^ odd_negate ) );
+        auto const r0101( shuffle<0, 1, 0, 1>( r01i01 ) );
+        auto const i0101( shuffle<2, 3, 2, 3>( r01i01 ) );
 
-        vector_t const i_left( repeat_lower_half( i_combined ) );
-
-        // Shared (because real right needs i2mi3 and imag right needs r3mr2):
-        vector_t right;
-        right = boost::simd::interleave_second( r_combined, i_combined );
-        // right = [ r3pr2, i2pi3, r3mr2, i2mi3 ]
-        right = shuffle<0, 3, 1, 2>( right );
-        // right = [ r3pr2, i2mi3, i2pi3, r3mr2 ]
-
-        vector_t const r_right( repeat_lower_half( right ) );
-        // r_right = [ r3pr2, i2mi3, r3pr2, i2mi3 ]
-        vector_t const i_right( repeat_upper_half( right ) );
-        // i_right = [ i2pi3, r3mr2, i2pi3, r3mr2 ]
-
-        real_out = r_left + ( r_right ^ negate_last_two );
-        imag_out = i_left + ( i_right ^ negate_last_two );
-
+        real = r0101 + ( r2p3i3m2 ^ negate_middle );
+        imag = i0101 + ( i3p2r2m3 ^ negate_middle );
     #endif // BOOST_SIMD_DETECTED
     }
 
     template <typename Vector>
-    BOOST_FORCEINLINE
-    void BOOST_FASTCALL dif::dft_4
-    (
-        Vector const & real_in , Vector const & imag_in ,
-        Vector       & real_out, Vector       & imag_out
-    )
+    BOOST_FORCEINLINE BOOST_NOTHROW_NOALIAS
+    void BOOST_FASTCALL dif::dft_4( Vector & real, Vector & imag )
     {
         using scalar_t = typename boost::dispatch::meta::value_of<Vector>::type;
 
@@ -2047,10 +2170,10 @@ namespace details
     #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
         using scalar_t = typename Vector::value_type;
 
-        scalar_t r0( real_in[ idx0 ] ); scalar_t i0( imag_in[ idx0 ] );
-        scalar_t r1( real_in[ idx1 ] ); scalar_t i1( imag_in[ idx1 ] );
-        scalar_t r2( real_in[ idx2 ] ); scalar_t i2( imag_in[ idx2 ] );
-        scalar_t r3( real_in[ idx3 ] ); scalar_t i3( imag_in[ idx3 ] );
+        scalar_t r0( real[ idx0 ] ); scalar_t i0( imag[ idx0 ] );
+        scalar_t r1( real[ idx1 ] ); scalar_t i1( imag[ idx1 ] );
+        scalar_t r2( real[ idx2 ] ); scalar_t i2( imag[ idx2 ] );
+        scalar_t r3( real[ idx3 ] ); scalar_t i3( imag[ idx3 ] );
 
         // butterfly:
         {
@@ -2080,8 +2203,6 @@ namespace details
         using vector_t = Vector;
         using boost::simd::details::shuffle;
 
-        vector_t const real( real_in ); vector_t const imag( imag_in );
-
         vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_upper ( sign_flipper<vector_t, false, false, true, true >() );
         vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_middle( sign_flipper<vector_t, false, true , true, false>() );
 
@@ -2095,15 +2216,15 @@ namespace details
         vector_t       r_right( shuffle<idx1, idx1, idx3, idx3>( ri_plus, ri_minus ) ); vector_t const i_right( shuffle<idx3, idx3, idx1, idx1>( ri_plus, ri_minus ) );
         r_right = r_right ^ *p_negate_upper;
 
-        real_out = r_left + ( r_right ^ *p_negate_middle );
-        imag_out = i_left + ( i_right ^ *p_negate_middle );
+        real = r_left + ( r_right ^ *p_negate_middle );
+        imag = i_left + ( i_right ^ *p_negate_middle );
 
     #endif // BOOST_SIMD_DETECTED
     }
 
 
     template <typename Vector>
-    BOOST_FORCEINLINE
+    BOOST_FORCEINLINE BOOST_NOTHROW_NOALIAS
     void BOOST_FASTCALL dif::dft_8_in_place
     (
         Vector & lower_real, Vector & lower_imag,
@@ -2114,6 +2235,7 @@ namespace details
         using scalar_t = typename boost::dispatch::meta::value_of<vector_t>::type;
 
     #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
+        using boost::simd::scalars;
         scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_real( scalars( lower_real ) );
         scalar_t * BOOST_DISPATCH_RESTRICT const p_lower_imag( scalars( lower_imag ) );
         scalar_t * BOOST_DISPATCH_RESTRICT const p_upper_real( scalars( upper_real ) );
@@ -2139,16 +2261,11 @@ namespace details
 
             // we can already calculate the lower DFT4 so we do it to free up
             // registers:
-            vector_t lower_p_upper_r;     vector_t lower_p_upper_i;
-            lower_p_upper_r[ 0 ] = r0pr4; lower_p_upper_i[ 0 ] = i0pi4;
-            lower_p_upper_r[ 1 ] = r1pr5; lower_p_upper_i[ 1 ] = i1pi5;
-            lower_p_upper_r[ 2 ] = r2pr6; lower_p_upper_i[ 2 ] = i2pi6;
-            lower_p_upper_r[ 3 ] = r3pr7; lower_p_upper_i[ 3 ] = i3pi7;
-            dif::dft_4<vector_t>
-            (
-                lower_p_upper_r, lower_p_upper_i,
-                lower_real     , lower_imag
-            );
+            lower_real[ 0 ] = r0pr4; lower_imag[ 0 ] = i0pi4;
+            lower_real[ 1 ] = r1pr5; lower_imag[ 1 ] = i1pi5;
+            lower_real[ 2 ] = r2pr6; lower_imag[ 2 ] = i2pi6;
+            lower_real[ 3 ] = r3pr7; lower_imag[ 3 ] = i3pi7;
+            dif::dft_4<vector_t>( lower_real, lower_imag );
         }
 
         // Third (4, 5) and fourth (6 ,7) quarters:
@@ -2186,14 +2303,14 @@ namespace details
             {
                 scalar_t const r4__( r4 ); scalar_t const i4__( i4 );
                 scalar_t const r5__( r5 ); scalar_t const i5__( i5 );
-                r4 = r4__ + r5__          ; i4 = i4__ + i5__        ;
-                r5 = r4__ - r5__          ; i5 = i4__ - i5__        ;
+                r4 = r4__ + r5__         ; i4 = i4__ + i5__         ;
+                r5 = r4__ - r5__         ; i5 = i4__ - i5__         ;
             }
             {
                 scalar_t const r6__( r6 ); scalar_t const i6__( i6 );
                 scalar_t const r7__( r7 ); scalar_t const i7__( i7 );
-                r6 = r6__ + r7__          ; i6 = i6__ + i7__        ;
-                r7 = r6__ - r7__          ; i7 = i6__ - i7__        ;
+                r6 = r6__ + r7__         ; i6 = i6__ + i7__         ;
+                r7 = r6__ - r7__         ; i7 = i6__ - i7__         ;
             }
         }
 
@@ -2237,12 +2354,7 @@ namespace details
             // butterfly" and do it to free up registers (the "upper" part of
             // the butterfly does not depend on the "lower" results):
             {
-                // Manually inlined
-                //   dif::dft_4<vector_t>
-                //   (
-                //       lower_p_upper_r, lower_p_upper_i,
-                //       lower_real     , lower_imag
-                //   );
+                // Manually inlined dif::dft_4<vector_t>()
                 vector_t const r01i01( l_p_u_r01i01 );
                 vector_t const r23i23( l_p_u_r23i23 );
 
@@ -2292,7 +2404,7 @@ namespace details
 
             vector_t const * BOOST_DISPATCH_RESTRICT const p_negate_odd( sign_flipper<vector_t, false, true, false, true>() );
             scalar_t const half_sqrt2    ( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
-            vector_t const twiddles      ( make<typename boost::simd::meta::vector_of<scalar_t, 4>::type/*vector_t*/>( +half_sqrt2, -half_sqrt2, -half_sqrt2, -half_sqrt2 ) );
+            vector_t const twiddles      { +half_sqrt2, -half_sqrt2, -half_sqrt2, -half_sqrt2 };
             vector_t const twiddled_57   ( ( r5577 + ( i5577 ^ *p_negate_odd ) ) * twiddles );
             vector_t const twiddled_r5577( shuffle<0, 0, 3, 3>( twiddled_57 ) );
             vector_t const twiddled_i5577( shuffle<1, 1, 2, 2>( twiddled_57 ) );
@@ -2305,41 +2417,146 @@ namespace details
     }
 
     template <typename Vector>
-    BOOST_FORCEINLINE
+    BOOST_FORCEINLINE BOOST_NOTHROW_NOALIAS
     void BOOST_FASTCALL dit::dft_8_in_place
     (
         Vector & lower_r, Vector & lower_i,
         Vector & upper_r, Vector & upper_i
     )
     {
-        //...zzz...still radix-2...
-
         using vector_t = Vector;
-        using scalar_t = typename Vector::value_type;
+        using scalar_t = typename boost::dispatch::meta::value_of<vector_t>::type;
 
-        dit::dft_4
-        (
-            upper_r, upper_i,
-            upper_r, upper_i
-        );
-
-        dit::dft_4
-        (
-            lower_r, lower_i,
-            lower_r, lower_i
-        );
+        dit::dft_4( lower_r, lower_i );
 
         scalar_t const half_sqrt2( static_cast<scalar_t>( 0.70710678118654752440084436210485L ) );
-        vector_t const wr( boost::simd::make<vector_t>( 1, +half_sqrt2, +0, -half_sqrt2 ) );
-        vector_t const wi( boost::simd::make<vector_t>( 0, -half_sqrt2, -1, -half_sqrt2 ) );
 
-        vector_t const temp_r( ( wr * upper_r ) - ( wi * upper_i ) );
-        vector_t const temp_i( ( wi * upper_r ) + ( wr * upper_i ) );
+    #if !defined( BOOST_SIMD_DETECTED ) && !defined( BOOST_SIMD_HAS_VECTORIZABLE_EMULATION )
+        // Direct implementation
+        // http://cnx.org/contents/8364463c-d5e7-4617-b892-fc2b38f60a59@2.2:9/Appendix-1---Simple-FFTs
+        {
+            using boost::simd::scalars;
+            auto const r( scalars( upper_r ) ); auto const i( scalars( upper_i ) );
+            auto & r0( r[ 0 ] ); auto & i0( i[ 0 ] );
+            auto & r1( r[ 1 ] ); auto & i1( i[ 1 ] );
+            auto & r2( r[ 2 ] ); auto & i2( i[ 2 ] );
+            auto & r3( r[ 3 ] ); auto & i3( i[ 3 ] );
 
-        upper_r = lower_r - temp_r;
-        upper_i = lower_i - temp_i;
-        lower_r = lower_r + temp_r;
-        lower_i = lower_i + temp_i;
+            { // lower half (size 2)
+                auto const r0_( r0 ); auto const i0_( i0 );
+                auto const r1_( r1 ); auto const i1_( i1 );
+                r0 = r0_ + r1_; i0 = i0_ + i1_;
+                r1 = r0_ - r1_; i1 = i0_ - i1_;
+            }
+            { // upper half (size 2)
+                auto const r2_( r2 ); auto const i2_( i2 );
+                auto const r3_( r3 ); auto const i3_( i3 );
+                r2 = r2_ + r3_; i2 = i2_ + i3_;
+                r3 = r2_ - r3 ; i3 = i2_ - i3_;
+            }
+        }
+
+        scalar_t const w0r0(           1 ); scalar_t const w0i0(           0 );
+        scalar_t const w0r1(  half_sqrt2 ); scalar_t const w0i1( -half_sqrt2 );
+    #if NT2_FFT_CLASSIC_SPLIT_RADIX
+        scalar_t const w3r0(           1 ); scalar_t const w3i0(           0 );
+        scalar_t const w3r1( -half_sqrt2 ); scalar_t const w3i1( -half_sqrt2 );
+    #else
+        scalar_t const w3r0(        w0r0 ); scalar_t const w3i0(       -w0i0 );
+        scalar_t const w3r1(        w0r1 ); scalar_t const w3i1(       -w0i1 );
+    #endif // NT2_FFT_CLASSIC_SPLIT_RADIX
+
+        using boost::simd::scalars;
+        scalar_t * const xr( scalars( lower_r ) ); scalar_t * const xi( scalars( lower_i ) );
+
+        auto const ur0( xr[ 0 ] ); auto const ui0( xi[ 0 ] );
+        auto const ur1( xr[ 1 ] ); auto const ui1( xi[ 1 ] );
+        auto const ur2( xr[ 2 ] ); auto const ui2( xi[ 2 ] );
+        auto const ur3( xr[ 3 ] ); auto const ui3( xi[ 3 ] );
+
+        auto const zr0( xr[ 4 ] ); auto const zi0( xi[ 4 ] );
+        auto const zr1( xr[ 5 ] ); auto const zi1( xi[ 5 ] );
+        auto const yr0( xr[ 6 ] ); auto const yi0( xi[ 6 ] );
+        auto const yr1( xr[ 7 ] ); auto const yi1( xi[ 7 ] );
+
+        auto const r0( ur0 ); auto const i0( ui0 );
+        auto const r1( ur1 ); auto const i1( ui1 );
+        auto const r2( ur2 ); auto const i2( ui2 );
+        auto const r3( ur3 ); auto const i3( ui3 );
+
+        auto const r4( zr0 ); auto const i4( zi0 );
+        auto const r5( zr1 ); auto const i5( zi1 );
+        auto const r6( yr0 ); auto const i6( yi0 );
+        auto const r7( yr1 ); auto const i7( yi1 );
+
+        auto const temp_r4( ( w0r0 * r4 ) - ( w0i0 * i4 ) ); auto const temp_i4( ( w0i0 * r4 ) + ( w0r0 * i4 ) );
+        auto const temp_r6( ( w3r0 * r6 ) - ( w3i0 * i6 ) ); auto const temp_i6( ( w3i0 * r6 ) + ( w3r0 * i6 ) );
+        auto const t4p6_r( temp_r4 + temp_r6 ); auto const t4p6_i( temp_i4 + temp_i6 );
+        auto const t4m6_r( temp_i6 - temp_i4 ); auto const t4m6_i( temp_r4 - temp_r6 );
+        xr[ 0 ] = r0 + t4p6_r; xi[ 0 ] = i0 + t4p6_i;
+        xr[ 4 ] = r0 - t4p6_r; xi[ 4 ] = i0 - t4p6_i;
+        xr[ 2 ] = r2 - t4m6_r; xi[ 2 ] = i2 - t4m6_i;
+        xr[ 6 ] = r2 + t4m6_r; xi[ 6 ] = i2 + t4m6_i;
+
+        auto const temp_r5( ( w0r1 * r5 ) - ( w0i1 * i5 ) ); auto const temp_i5( ( w0i1 * r5 ) + ( w0r1 * i5 ) );
+        auto const temp_r7( ( w3r1 * r7 ) - ( w3i1 * i7 ) ); auto const temp_i7( ( w3i1 * r7 ) + ( w3r1 * i7 ) );
+        auto const t5p7_r( temp_r5 + temp_r7 ); auto const t5p7_i( temp_i5 + temp_i7 );
+        auto const t5m7_r( temp_i7 - temp_i5 ); auto const t5m7_i( temp_r5 - temp_r7 );
+        xr[ 1 ] = r1 + t5p7_r; xi[ 1 ] = i1 + t5p7_i;
+        xr[ 5 ] = r1 - t5p7_r; xi[ 5 ] = i1 - t5p7_i;
+        xr[ 3 ] = r3 - t5m7_r; xi[ 3 ] = i3 - t5m7_i;
+        xr[ 7 ] = r3 + t5m7_r; xi[ 7 ] = i3 + t5m7_i;
+    #else
+        using boost::simd::details::shuffle;
+        using namespace boost::simd;
+
+        using full_vector_t = typename boost::simd::meta::full_vector<vector_t>::type;
+    #ifdef __clang__
+        using vector_f = full_vector_t;
+    #else
+        using vector_f = vector_t;
+    #endif // __clang__
+
+        auto const odd_negate   ( *sign_flipper<vector_t, false, true, false, true >() );
+        auto const negate_middle( *sign_flipper<vector_t, false, true, true , false>() );
+
+        {
+            auto     const r0022( shuffle<0, 0, 2, 2>( upper_r ) ); auto     const i0022( shuffle<0, 0, 2, 2>( upper_i ) );
+            vector_f const r1133( shuffle<1, 1, 3, 3>( upper_r ) ); vector_f const i1133( shuffle<1, 1, 3, 3>( upper_i ) );
+
+            upper_r = r0022 + ( r1133 ^ odd_negate );
+            upper_i = i0022 + ( i1133 ^ odd_negate );
+        }
+
+        auto     const t57_left ( shuffle<1, 3, 1, 3>( upper_r, upper_i ) * boost::simd::splat<full_vector_t>( half_sqrt2 ) ); //r57i57
+        vector_f const t57_right( shuffle<2, 3, 0, 1>( t57_left         )                                                   ); //i57r57
+        auto     const t57( t57_left + ( t57_right ^ negate_middle ) );
+
+        auto     const final_57_left ( shuffle<0, 3, 2, 0>( t57 ) );
+        vector_f const final_57_right( shuffle<1, 2, 3, 1>( t57 ) );
+        auto     const final_57( final_57_left + ( final_57_right ^ odd_negate ) ); // t5p7_r t5m7_r t5p7_i t5m7_i
+
+        //auto const r4i6r4i6( interleave_even( upper_r, upper_i ) );
+        //auto const r6i4r6i4( interleave_even( upper_r, upper_i ) );
+        //
+        //auto const r4i4r6i6( interleave_even( upper_r, upper_i ) );
+        //auto const r6i6r4i4( shuffle<2, 3, 0, 1>( r4i4r6i6 ) );
+
+        auto     const r44i66( shuffle<0, 0, 2, 2>( upper_r, upper_i ) );
+        vector_f const r66i44( shuffle<2, 2, 0, 0>( upper_r, upper_i ) );
+        auto     const r46i64( r44i66 + ( r66i44 ^ odd_negate ) );
+
+        auto const r4i4i6r6( shuffle<0, 3, 2, 1>( r46i64 ) ); // 0 1 2 3 -> 0 3 2 1 (swap 3 & 1)
+
+        auto const final_right_r( interleave_first <full_vector_t, full_vector_t>( r4i4i6r6, final_57 ) );
+        auto const final_right_i( interleave_second<full_vector_t, full_vector_t>( r4i4i6r6, final_57 ) );
+
+        auto const final_p_r( lower_r + final_right_r ); auto const final_p_i( lower_i + final_right_i );
+        auto const final_m_r( lower_r - final_right_r ); auto const final_m_i( lower_i - final_right_i );
+
+        lower_r = shuffle<0, 1, 2, 3>( final_p_r, final_m_r ); lower_i = shuffle<0, 1, 2, 3>( final_p_i, final_m_i );
+        upper_r = shuffle<0, 1, 2, 3>( final_m_r, final_p_r ); upper_i = shuffle<0, 1, 2, 3>( final_m_i, final_p_i );
+    #endif
     }
 
 
@@ -2490,17 +2707,8 @@ namespace details
             *p_r3 = ( p_w->w3.wr * tmj_r ) - ( p_w->w3.wi * tmj_i );
             *p_i3 = ( p_w->w3.wi * tmj_r ) + ( p_w->w3.wr * tmj_i );
 
-            Decimation::dft_4
-            (
-                *p_r2, *p_i2,
-                *p_r2, *p_i2
-            );
-
-            Decimation::dft_4
-            (
-                *p_r3, *p_i3,
-                *p_r3, *p_i3
-            );
+            Decimation::dft_4( *p_r2, *p_i2 );
+            Decimation::dft_4( *p_r3, *p_i3 );
 
         #else
 
@@ -2514,22 +2722,12 @@ namespace details
             );
 
             Decimation::dft_8_in_place
-            (
-                *p_r0, *p_i0,
-                *p_r1, *p_i1
-            );
-
-            Decimation::dft_4
-            (
-                *p_r2, *p_i2,
-                *p_r2, *p_i2
-            );
-
-            Decimation::dft_4
-            (
-                *p_r3, *p_i3,
-                *p_r3, *p_i3
-            );
+                             (
+                               *p_r0, *p_i0,
+                               *p_r1, *p_i1
+                             );
+            Decimation::dft_4( *p_r2, *p_i2 );
+            Decimation::dft_4( *p_r3, *p_i3 );
 
         #endif // BOOST_SIMD_DETECTED
         }
@@ -2547,28 +2745,26 @@ namespace details
         BOOST_NOTHROW_NOALIAS
         static void BOOST_FASTCALL apply( typename Context::parameter0_t const p_reals, typename Context::parameter1_t const p_imags )
         {
-            using vector_t = typename Context::vector_t;
-
             //...zzz...uses internal knowledge about the parameter0 and
             //...zzz...parameter1 of the used Context...
 
-            vector_t * BOOST_DISPATCH_RESTRICT const p_r0( &p_reals[ 0 ] ); vector_t * BOOST_DISPATCH_RESTRICT const p_i0( &p_imags[ 0 ] );
-            vector_t * BOOST_DISPATCH_RESTRICT const p_r1( &p_reals[ 1 ] ); vector_t * BOOST_DISPATCH_RESTRICT const p_i1( &p_imags[ 1 ] );
-            vector_t * BOOST_DISPATCH_RESTRICT const p_r2( &p_reals[ 2 ] ); vector_t * BOOST_DISPATCH_RESTRICT const p_i2( &p_imags[ 2 ] );
-            vector_t * BOOST_DISPATCH_RESTRICT const p_r3( &p_reals[ 3 ] ); vector_t * BOOST_DISPATCH_RESTRICT const p_i3( &p_imags[ 3 ] );
+            auto * BOOST_DISPATCH_RESTRICT const p_r0( &p_reals[ 0 ] ); auto * BOOST_DISPATCH_RESTRICT const p_i0( &p_imags[ 0 ] );
+            auto * BOOST_DISPATCH_RESTRICT const p_r1( &p_reals[ 1 ] ); auto * BOOST_DISPATCH_RESTRICT const p_i1( &p_imags[ 1 ] );
+            auto * BOOST_DISPATCH_RESTRICT const p_r2( &p_reals[ 2 ] ); auto * BOOST_DISPATCH_RESTRICT const p_i2( &p_imags[ 2 ] );
+            auto * BOOST_DISPATCH_RESTRICT const p_r3( &p_reals[ 3 ] ); auto * BOOST_DISPATCH_RESTRICT const p_i3( &p_imags[ 3 ] );
 
-            //...zzz...still radix-2...
+            Decimation::dft_8_in_place( *p_r0, *p_i0,
+                                        *p_r1, *p_i1  );
+            Decimation::dft_4         ( *p_r2, *p_i2  );
+            Decimation::dft_4         ( *p_r3, *p_i3  );
 
-            Decimation::dft_8_in_place( *p_r0, *p_i0, *p_r1, *p_i1  );
-            Decimation::dft_4         ( *p_r2, *p_i2, *p_r2, *p_i2  );
-            Decimation::dft_4         ( *p_r3, *p_i3, *p_r3, *p_i3  );
-
-            butterfly_loop<Decimation, Context>
+            Decimation::butterfly
             (
-                p_reals,
-                p_imags,
-                Context:: template twiddle_factors<N>(),
-                N
+                *p_r0, *p_i0,
+                *p_r1, *p_i1,
+                *p_r2, *p_i2,
+                *p_r3, *p_i3,
+                *Context:: template twiddle_factors<N>()
             );
         }
     }; // struct danielson_lanczos<16, dit, Context, T, 4>
@@ -2614,7 +2810,7 @@ namespace details
         { // unrolled butterfly loop
             Context context( param0, param1, N );
 
-            typename Context::twiddles const * BOOST_DISPATCH_RESTRICT p_w( Context:: template twiddle_factors<N>() );
+            auto const * BOOST_DISPATCH_RESTRICT p_w( Context:: template twiddle_factors<N>() );
 
             boost::simd::prefetch_temporary( p_w );
             Decimation:: template butterfly<typename Context::vector_t>

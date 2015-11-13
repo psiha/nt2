@@ -37,6 +37,37 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <utility> // std::make_index_sequence
+//------------------------------------------------------------------------------
+#ifdef _MSC_VER // MSVC12 does not have std::make_index_sequence
+__if_not_exists( std::make_index_sequence )
+{
+namespace std
+{
+    // http://stackoverflow.com/questions/17424477/implementation-c14-make-integer-sequence
+    // http://stackoverflow.com/questions/25372805/how-exactly-is-stdmake-integer-sequence-implemented
+
+    template <std::uint16_t...> struct index_sequence { using type = index_sequence; };
+
+    template <class S1, class S2> struct concat_impl;
+    template <std::uint16_t... I1, std::uint16_t... I2>
+    struct concat_impl<index_sequence<I1...>, index_sequence<I2...>> : index_sequence<I1..., ( sizeof...(I1)+I2 )...>{};
+
+    template <class S1, class S2>
+    using concatenate = typename concat_impl<S1, S2>::type;
+
+    template <std::uint16_t N> struct make_index_sequence_impl;
+    template <std::uint16_t N>
+    struct make_index_sequence_impl : concatenate<typename make_index_sequence_impl<N / 2>::type, typename make_index_sequence_impl<N - N / 2>::type> {};
+
+    template <> struct make_index_sequence_impl<0> : index_sequence< > {};
+    template <> struct make_index_sequence_impl<1> : index_sequence<0> {};
+
+    template<std::uint16_t N>
+    using make_index_sequence = typename make_index_sequence_impl<N>::type;
+} // namespace std
+} // __if_not_exists( std::make_index_sequence )
+#endif // MSVC
 //------------------------------------------------------------------------------
 namespace nt2
 {
@@ -49,12 +80,19 @@ struct twiddle_pair
     T /*const*/ wi;
 }; // twiddle_pair
 
+//#define NT2_FFT_CLASSIC_SPLIT_RADIX 1
+
+#if NT2_FFT_CLASSIC_SPLIT_RADIX
 template <typename T>
 struct split_radix_twiddles
 {
     twiddle_pair<T> /*const*/ w0;
     twiddle_pair<T> /*const*/ w3;
 }; // split_radix_twiddles
+#else
+template <typename T>
+using split_radix_twiddles = twiddle_pair<T>;
+#endif // NT2_FFT_CLASSIC_SPLIT_RADIX
 
 
 /*
@@ -206,6 +244,7 @@ namespace detail
             Vector sine;
 
         #if defined( _MSC_VER ) && defined( _M_IX86 )
+
             Vector::value_type * const p_sine  ( sine  .data() );
             Vector::value_type * const p_cosine( cosine.data() );
 
@@ -225,13 +264,6 @@ namespace detail
                 fldpi
                 fldpi
                 fadd
-                //...zzz...direct version seems to work the same?
-                //fld [omega_scale]
-                //fmul
-                //fild [local_index]
-                //fmul
-                //fld [N]
-                //fdiv
                 fmul  [omega_scale]
                 fimul [local_index]
                 fdiv  [N]
@@ -361,8 +393,6 @@ namespace detail
     /// \note A C++11/14 experiment on using variadic templates, index lists and
     /// constexpressions to statically generate the twiddle factor arrays.
     ///
-    /// http://stackoverflow.com/questions/17424477/implementation-c14-make-integer-sequence
-    /// http://stackoverflow.com/questions/25372805/how-exactly-is-stdmake-integer-sequence-implemented
     /// http://stackoverflow.com/questions/16387354/template-tuple-calling-a-function-on-each-element
     /// http://stackoverflow.com/questions/24110398/insert-a-transformed-integer-sequence-into-a-variadic-template-argument
     /// http://stackoverflow.com/questions/19016099/lookup-table-with-constexpr/19016627
@@ -372,25 +402,10 @@ namespace detail
     /// https://connect.microsoft.com/VisualStudio/feedback/details/813466/an-implementation-of-make-integer-sequence-results-to-an-internal-compiler-error-code-fine-on-clang
     /// https://connect.microsoft.com/VisualStudio/feedback/details/814000/ice-compiling-recursive-template-c-17-integer-sequence-implementation
     ///                                       (28.01.2015.) (Domagoj Saric)
-    template <unsigned...> struct seq { using type = seq; };
-
-    template <class S1, class S2> struct concat_impl;
-    template <unsigned... I1, unsigned... I2>
-    struct concat_impl<seq<I1...>, seq<I2...>> : seq<I1..., (sizeof...(I1)+I2)...> {};
-
-    template <class S1, class S2>
-    using concatenate = typename concat_impl<S1, S2>::type;
-
-    template <unsigned N> struct gen_seq;
-    template <unsigned N>
-    struct gen_seq : concatenate<typename gen_seq<N/2>::type, typename gen_seq<N - N/2>::type> {};
-
-    template <> struct gen_seq<0> : seq< > {};
-    template <> struct gen_seq<1> : seq<0> {};
 
     template <typename Init, typename Vector, typename> struct array_aux;
     template <typename Init, typename Vector, std::uint16_t... Indices>
-    struct array_aux<Init, Vector, seq<Indices...>>
+    struct array_aux<Init, Vector, std::index_sequence<Indices...>>
     {
         static std::uint16_t const N = sizeof...( Indices );
         using factors_t =
@@ -406,8 +421,8 @@ namespace detail
     }; // struct array_aux
 
     template <typename Init, typename Vector, std::uint16_t... Indices>
-    typename array_aux<Init, Vector, seq<Indices...>>::cache_aligned_factors_t const
-        array_aux<Init, Vector, seq<Indices...>>::factors = { { Init:: template value<Indices>()... } };
+    typename array_aux<Init, Vector, std::index_sequence<Indices...>>::cache_aligned_factors_t BOOST_CONSTEXPR_OR_CONST
+        array_aux<Init, Vector, std::index_sequence<Indices...>>::factors = { { Init:: template value<Indices>()... } };
 
     /// \note MSVC12 explodes/dies a slow death if we try to use the
     /// static_(sine/cosine)() function templates (from static_sincos.hpp) in
@@ -416,9 +431,24 @@ namespace detail
     /// \note GCC and Clang are supposed to be capable of compile-time
     /// evaluation of <cmath> functions:
     /// https://groups.google.com/a/isocpp.org/forum/#!topic/std-discussion/a7D2SYqUX-I
-    /// MSVC is as usual "won't do it" on this topic
-    /// https://connect.microsoft.com/VisualStudio/Feedback/Details/807275
     ///                                       (30.01.2015.) (Domagoj Saric)
+    /// \note Contrary to the "won't do it" 'resolution' of the related ticket:
+    /// https://connect.microsoft.com/VisualStudio/Feedback/Details/807275
+    /// MSVC14 actually performs <cmath> function evaluation at 'optimisation
+    /// time' - insider dev information: "...we implemented the majority of your
+    /// request. That particular bug should not have been resolved as
+    /// "closed-won't fix". Because we actually implemented it...
+    /// Two caveats:
+    /// 1) This is a code generator optimization... so unfortunately it's not
+    /// implementable via constexpr yet. You need /O2 and /fp:fast
+    /// 2) We had to restrict the input ranges of the functions that we allow.
+    /// We cross compile from most architectures to most other architectures,
+    /// and sin(1000.3) is going to give you a different answer if you run it
+    /// on ARM vs if you run it on x86. We made sure that when the optimization
+    /// kicks in it produces the exact bitwise answer you are expecting on the
+    /// architecture you're targeting".
+    ///                                       (29.10.2015.) (Domagoj Saric)
+
     BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin_aux( long double const x, long double const xx )
     {
         return
@@ -456,27 +486,33 @@ namespace detail
         static BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR o() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L / N; }
 
         template <std::uint16_t index>
-        static BOOST_FORCEINLINE split_radix_twiddles<typename boost::simd::meta::compiler_vector<Vector>::type> BOOST_CONSTEXPR BOOST_FASTCALL value()
+        BOOST_CONSTEXPR BOOST_FORCEINLINE
+        static split_radix_twiddles<typename boost::simd::meta::compiler_vector<Vector>::type> BOOST_FASTCALL value()
         {
             std::uint16_t BOOST_CONSTEXPR_OR_CONST i    ( index * boost::simd::meta::cardinal_of<Vector>::value );
-            auto            BOOST_CONSTEXPR_OR_CONST omega( o()                                                   );
+            auto          BOOST_CONSTEXPR_OR_CONST omega( o()                                                   );
             return
+            #if NT2_FFT_CLASSIC_SPLIT_RADIX
             {
+            #endif // !NT2_FFT_CLASSIC_SPLIT_RADIX
                 { // wn
                     {    cos(   i + 0      , omega ),    cos(   i + 1      , omega ),    cos(   i + 2      , omega ),    cos(   i + 3      , omega ) },
                     { negsin(   i + 0      , omega ), negsin(   i + 1      , omega ), negsin(   i + 2      , omega ), negsin(   i + 3      , omega ) },
-                },
-                { // w3n
+                }
+            #if NT2_FFT_CLASSIC_SPLIT_RADIX
+               ,{ // w3n
                     {    cos( ( i + 0 ) * 3, omega ),    cos( ( i + 1 ) * 3, omega ),    cos( ( i + 2 ) * 3, omega ),    cos( ( i + 3 ) * 3, omega ) },
                     { negsin( ( i + 0 ) * 3, omega ), negsin( ( i + 1 ) * 3, omega ), negsin( ( i + 2 ) * 3, omega ), negsin( ( i + 3 ) * 3, omega ) },
                 }
-            };
+            }
+            #endif
+            ;
         }
     }; // twiddle_calculator
 
     template <unsigned N, typename Vector>
     struct static_twiddle_holder
-        : array_aux<twiddle_calculator<N, Vector>, Vector, typename gen_seq<N / boost::simd::meta::cardinal_of<Vector>::value>::type>
+        : array_aux<twiddle_calculator<N, Vector>, Vector, std::make_index_sequence<N / boost::simd::meta::cardinal_of<Vector>::value>>
     {
         static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors()
         {
@@ -498,8 +534,12 @@ namespace detail
         {
             BOOST_COLD cache_aligned_factors_t()
             {
+            #if NT2_FFT_CLASSIC_SPLIT_RADIX
                 calculate_twiddles<full_vector_t>( reinterpret_cast<twiddle_pair<full_vector_t> *>( &factors.front().w0 ), N, 2, 1, 0 );
                 calculate_twiddles<full_vector_t>( reinterpret_cast<twiddle_pair<full_vector_t> *>( &factors.front().w3 ), N, 2, 3, 0 );
+            #else
+                calculate_twiddles<full_vector_t>( reinterpret_cast<twiddle_pair<full_vector_t> *>( &factors.front()    ), N, 1, 1, 0 );
+            #endif
             }
 
             using factors_t = std::array
@@ -545,8 +585,12 @@ namespace detail
 template <unsigned N, typename Vector>
 using twiddles_interleaved = typename boost::mpl::if_c
       <
+      #if NT2_FFT_CLASSIC_SPLIT_RADIX
         ( N <= 64 ), // a heuristic measure against bloat, compile time and memory exhaustion...
-        detail::static_twiddle_holder <N, Vector>,
+      #else
+        ( N <= 128 ),
+      #endif // NT2_FFT_CLASSIC_SPLIT_RADIX
+        detail:: static_twiddle_holder<N, Vector>,
         detail::runtime_twiddle_holder<N, Vector>
       >::type;
 
