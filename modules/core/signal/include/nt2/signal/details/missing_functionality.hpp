@@ -412,6 +412,7 @@ namespace details
 
     template <> BOOST_FORCEINLINE __m128 shuffle<0, 0, 1, 1>( __m128 const single_vector ) { return _mm_unpacklo_ps( single_vector, single_vector ); }
     template <> BOOST_FORCEINLINE __m128 shuffle<2, 2, 3, 3>( __m128 const single_vector ) { return _mm_unpackhi_ps( single_vector, single_vector ); }
+    template <> BOOST_FORCEINLINE __m128 shuffle<2, 3, 0, 1>( __m128 const single_vector ) { return _mm_movelh_ps( _mm_movehl_ps( single_vector, single_vector ), single_vector ); } // swap halves
 
     #ifdef BOOST_SIMD_HAS_SSE2_SUPPORT
     template <> BOOST_FORCEINLINE __m128 shuffle<0, 1, 2, 3>( __m128 const lower, __m128 const upper ) { return _mm_castpd_ps( _mm_move_sd( _mm_castps_pd( upper ), _mm_castps_pd( lower ) ) ); }
@@ -437,7 +438,7 @@ namespace details
         unsigned int upper_i0, unsigned int upper_i1,
         typename Vector
     >
-    BOOST_FORCEINLINE Vector shuffle( Vector const & lower, Vector const & upper )
+    BOOST_FORCEINLINE Vector shuffle( Vector const & __restrict lower, Vector const & __restrict upper )
     {
         return __builtin_shufflevector( compiler_vector( lower ), compiler_vector( upper ), 0 + lower_i0, 0 + lower_i1, 4 + upper_i0, 4 + upper_i1 );
     }
@@ -447,7 +448,7 @@ namespace details
         unsigned int i0, unsigned int i1, unsigned int i2, unsigned int i3,
         typename Vector
     >
-    BOOST_FORCEINLINE Vector shuffle( Vector const & vector )
+    BOOST_FORCEINLINE Vector shuffle( Vector const & __restrict vector )
     {
         return shuffle<i0, i1, i2, i3>( vector, vector );
     }
@@ -460,7 +461,7 @@ namespace details
         unsigned int upper_i0, unsigned int upper_i1,
         typename Vector
     >
-    BOOST_FORCEINLINE Vector shuffle( Vector const & lower, Vector const & upper )
+    BOOST_FORCEINLINE Vector shuffle( Vector const & __restrict lower, Vector const & __restrict upper )
     {
         /// \note GCC4.8 can crash here.
         /// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57509
@@ -474,21 +475,21 @@ namespace details
         unsigned int i0, unsigned int i1, unsigned int i2, unsigned int i3,
         typename Vector
     >
-    BOOST_FORCEINLINE Vector shuffle( Vector const & vector )
+    BOOST_FORCEINLINE Vector shuffle( Vector const & __restrict vector )
     {
         shuffle_mask_t constexpr mask = { i0, i1, i2, i3 };
         return __builtin_shuffle( compiler_vector( vector ), mask );
     }
-#elif ( defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 ) ) && !( defined( __clang__ ) && defined( BOOST_SIMD_ARCH_ARM_64 ) )
+#elif defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 )
     // NEON shuffle
-    // Clang missing vtbl2_u8 for arm64 - "...and yes, support for ARM64 NEON is patchy at the moment..." https://groups.google.com/forum/#!topic/llvm-dev/Pdztvvs--yU
     typedef native<float, BOOST_SIMD_DEFAULT_EXTENSION>::native_type builtin_vector_t;
     template
     <
         unsigned int lower_i0, unsigned int lower_i1,
         unsigned int upper_i0, unsigned int upper_i1
     >
-    BOOST_FORCEINLINE builtin_vector_t shuffle( builtin_vector_t const lower, builtin_vector_t const upper )
+    BOOST_FORCEINLINE
+    builtin_vector_t shuffle( builtin_vector_t const lower, builtin_vector_t const upper )
     {
         static uint8x8_t const indices_lower =
         {
@@ -522,7 +523,7 @@ namespace details
         typename Vector
     >
     BOOST_FORCEINLINE
-    Vector shuffle( Vector const & lower, Vector const & upper )
+    Vector shuffle( Vector const & __restrict lower, Vector const & __restrict upper )
     {
         return make<Vector>
         (
@@ -539,7 +540,7 @@ namespace details
         typename Vector
     >
     BOOST_FORCEINLINE
-    Vector shuffle( Vector const & vector )
+    Vector shuffle( Vector const & __restrict vector )
     {
         return shuffle<i0, i1, i2, i3>( vector, vector );
     }
