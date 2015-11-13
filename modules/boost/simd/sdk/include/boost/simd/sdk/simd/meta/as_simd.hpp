@@ -37,13 +37,13 @@ namespace boost { namespace simd { namespace meta
   template<class T, class Extension, class Enable = void>
   struct as_simd
   {
-    typedef dispatch::meta::na_ type;
+    using type = dispatch::meta::na_;
   };
 
   template<std::size_t N, class T>
   struct as_simd<T, tag::simd_emulation_<N>, typename enable_if< is_fundamental<T> >::type>
   {
-    typedef boost::simd::aligned_array<T, N / sizeof(T)> type;
+    using type = boost::simd::aligned_array<T, N / sizeof(T)>;
   };
 
 
@@ -69,7 +69,7 @@ namespace boost { namespace simd { namespace meta
 
 #ifdef BOOST_SIMD_NATIVE_GCC
 
-template <typename T> struct builtin_gcc_type { typedef T type; };
+template <typename T> struct builtin_gcc_type { using type = T; };
 
 #if defined( __ARM_NEON__ ) || defined( BOOST_SIMD_ARCH_ARM_64 )
     //...mrmlj...gcc generates noticeably slower code when unsigned is used
@@ -88,15 +88,15 @@ template <typename T> struct builtin_gcc_type { typedef T type; };
                 typedef scalar_t type __attribute__((vector_size(sizeof_vector), may_alias))                        \
             )
     #else // GCC
-        template <> struct builtin_gcc_type<boost::simd::int8_t  > { typedef __builtin_neon_qi  type; };
-        template <> struct builtin_gcc_type<boost::simd::uint8_t > { typedef __builtin_neon_uqi type; };
-        template <> struct builtin_gcc_type<boost::simd::int16_t > { typedef __builtin_neon_hi  type; };
-        template <> struct builtin_gcc_type<boost::simd::uint16_t> { typedef __builtin_neon_uhi type; };
-        template <> struct builtin_gcc_type<boost::simd::int32_t > { typedef __builtin_neon_si  type; };
-        template <> struct builtin_gcc_type<boost::simd::uint32_t> { typedef __builtin_neon_usi type; };
-        template <> struct builtin_gcc_type<boost::simd::int64_t > { typedef __builtin_neon_di  type; };
-        template <> struct builtin_gcc_type<boost::simd::uint64_t> { typedef __builtin_neon_udi type; };
-        template <> struct builtin_gcc_type<float                > { typedef __builtin_neon_sf  type; };
+        template <> struct builtin_gcc_type<boost::simd::int8_t  > { using type = __builtin_neon_qi ; };
+        template <> struct builtin_gcc_type<boost::simd::uint8_t > { using type = __builtin_neon_uqi; };
+        template <> struct builtin_gcc_type<boost::simd::int16_t > { using type = __builtin_neon_hi ; };
+        template <> struct builtin_gcc_type<boost::simd::uint16_t> { using type = __builtin_neon_uhi; };
+        template <> struct builtin_gcc_type<boost::simd::int32_t > { using type = __builtin_neon_si ; };
+        template <> struct builtin_gcc_type<boost::simd::uint32_t> { using type = __builtin_neon_usi; };
+        template <> struct builtin_gcc_type<boost::simd::int64_t > { using type = __builtin_neon_di ; };
+        template <> struct builtin_gcc_type<boost::simd::uint64_t> { using type = __builtin_neon_udi; };
+        template <> struct builtin_gcc_type<float                > { using type = __builtin_neon_sf ; };
     #endif // GCC/Clang
 #else // generic
     template <std::size_t N, class T>

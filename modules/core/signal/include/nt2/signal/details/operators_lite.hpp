@@ -13,8 +13,10 @@
 #define OPERATORS_LITE_HPP_INCLUDED
 //------------------------------------------------------------------------------
 #include <boost/simd/sdk/simd/meta/as_simd.hpp>
+
+#include <cstdint>
 //------------------------------------------------------------------------------
-/// \note Clang (3.5) still chokes on operator^ even though it is supposed to
+/// \note Clang (3.6) still chokes on operator^ even though it is supposed to
 /// support it at least on x86 targets.
 /// http://clang.llvm.org/docs/LanguageExtensions.html#vector-operations
 ///                                           (29.01.2015.) (Domagoj Saric)
@@ -28,9 +30,9 @@
     {
     namespace details
     {
-        using floatv4  = typename meta::as_simd<float           , BOOST_SIMD_DEFAULT_EXTENSION>::type;
-        using doublev2 = typename meta::as_simd<double          , BOOST_SIMD_DEFAULT_EXTENSION>::type;
-        using intv4    = typename meta::as_simd</*std::*/int32_t, BOOST_SIMD_DEFAULT_EXTENSION>::type;
+        using floatv4  = typename meta::as_simd<float       , BOOST_SIMD_DEFAULT_EXTENSION>::type;
+        using doublev2 = typename meta::as_simd<double      , BOOST_SIMD_DEFAULT_EXTENSION>::type;
+        using intv4    = typename meta::as_simd<std::int32_t, BOOST_SIMD_DEFAULT_EXTENSION>::type;
     } // namespace details
     } // namespace simd
     } // namespace boost
@@ -117,22 +119,22 @@ namespace simd
 namespace meta
 {
 //------------------------------------------------------------------------------
-template <typename Vector> struct operator_only_lite_vector { typedef          Vector              type; };
-template <typename Vector> struct full_vector               { typedef          Vector              type; };
-template <typename Vector> struct compiler_vector           { typedef typename Vector::native_type type; };
+template <typename Vector> struct operator_only_lite_vector { using type =          Vector             ; };
+template <typename Vector> struct full_vector               { using type =          Vector             ; };
+template <typename Vector> struct compiler_vector           { using type = typename Vector::native_type; };
 
 #ifdef BOOST_SIMD_HAS_LITE_OPERATORS
-    template <> struct operator_only_lite_vector<typename boost::simd::meta::vector_of<float           , 4>::type> { typedef details::floatv4  type; };
-    template <> struct operator_only_lite_vector<typename boost::simd::meta::vector_of<double          , 2>::type> { typedef details::doublev2 type; };
-    template <> struct operator_only_lite_vector<typename boost::simd::meta::vector_of</*std::*/int32_t, 4>::type> { typedef details::intv4    type; };
+    template <> struct operator_only_lite_vector<typename boost::simd::meta::vector_of<float       , 4>::type> { using type = details::floatv4 ; };
+    template <> struct operator_only_lite_vector<typename boost::simd::meta::vector_of<double      , 2>::type> { using type = details::doublev2; };
+    template <> struct operator_only_lite_vector<typename boost::simd::meta::vector_of<std::int32_t, 4>::type> { using type = details::intv4   ; };
 
-    template <> struct full_vector<details::floatv4 > : boost::simd::meta::vector_of<float           , 4>::type {};
-    template <> struct full_vector<details::doublev2> : boost::simd::meta::vector_of<double          , 2>::type {};
-    template <> struct full_vector<details::intv4   > : boost::simd::meta::vector_of</*std::*/int32_t, 4>::type {};
+    template <> struct full_vector<details::floatv4 > : boost::simd::meta::vector_of<float       , 4>::type {};
+    template <> struct full_vector<details::doublev2> : boost::simd::meta::vector_of<double      , 2>::type {};
+    template <> struct full_vector<details::intv4   > : boost::simd::meta::vector_of<std::int32_t, 4>::type {};
 
-    template <> struct compiler_vector<details::floatv4 > { typedef details::floatv4  type; };
-    template <> struct compiler_vector<details::doublev2> { typedef details::doublev2 type; };
-    template <> struct compiler_vector<details::intv4   > { typedef details::intv4    type; };
+    template <> struct compiler_vector<details::floatv4 > { using type = details::floatv4; };
+    template <> struct compiler_vector<details::doublev2> { using type = details::doublev2; };
+    template <> struct compiler_vector<details::intv4   > { using type = details::intv4; };
 
     template <> struct cardinal_of<details::floatv4 > : boost::mpl::size_t<4> {};
     template <> struct cardinal_of<details::doublev2> : boost::mpl::size_t<2> {};
@@ -153,12 +155,12 @@ template <typename Scalar, typename Extension, typename Enable>
 typename native<Scalar, Extension, Enable>::native_type const & compiler_vector( native<Scalar, Extension, Enable> const & vector ) { return vector.data_; }
 
 #ifdef BOOST_SIMD_HAS_LITE_OPERATORS
-    BOOST_FORCEINLINE float            * scalars( details::floatv4  & vector ) { return reinterpret_cast<float            *>( &vector ); }
-    BOOST_FORCEINLINE float            * scalars( details::floatv4  * vector ) { return reinterpret_cast<float            *>(  vector ); }
-    BOOST_FORCEINLINE double           * scalars( details::doublev2 & vector ) { return reinterpret_cast<double           *>( &vector ); }
-    BOOST_FORCEINLINE double           * scalars( details::doublev2 * vector ) { return reinterpret_cast<double           *>(  vector ); }
-    BOOST_FORCEINLINE /*std::*/int32_t * scalars( details::intv4    & vector ) { return reinterpret_cast</*std::*/int32_t *>( &vector ); }
-    BOOST_FORCEINLINE /*std::*/int32_t * scalars( details::intv4    * vector ) { return reinterpret_cast</*std::*/int32_t *>(  vector ); }
+    BOOST_FORCEINLINE float        * scalars( details::floatv4  & vector ) { return reinterpret_cast<float        *>( &vector ); }
+    BOOST_FORCEINLINE float        * scalars( details::floatv4  * vector ) { return reinterpret_cast<float        *>(  vector ); }
+    BOOST_FORCEINLINE double       * scalars( details::doublev2 & vector ) { return reinterpret_cast<double       *>( &vector ); }
+    BOOST_FORCEINLINE double       * scalars( details::doublev2 * vector ) { return reinterpret_cast<double       *>(  vector ); }
+    BOOST_FORCEINLINE std::int32_t * scalars( details::intv4    & vector ) { return reinterpret_cast<std::int32_t *>( &vector ); }
+    BOOST_FORCEINLINE std::int32_t * scalars( details::intv4    * vector ) { return reinterpret_cast<std::int32_t *>(  vector ); }
 
     BOOST_FORCEINLINE details::floatv4        & compiler_vector( details::floatv4        & vector ) { return vector; }
     BOOST_FORCEINLINE details::floatv4  const & compiler_vector( details::floatv4  const & vector ) { return vector; }
