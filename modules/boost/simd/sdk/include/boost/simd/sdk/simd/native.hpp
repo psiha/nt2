@@ -113,10 +113,17 @@ namespace boost { namespace simd
     enum v_size { static_size = meta::cardinal_of< native<Scalar, Extension> >::value };
 
     /// @brief Default constructor
-    BOOST_FORCEINLINE native() {}
+    BOOST_FORCEINLINE BOOST_CONSTEXPR native() {}
 
-    /// @brief Constructs a native from a extension specific register
-    BOOST_FORCEINLINE native(native_type s) : data_(s) {}
+    /// @brief Constructs a native from an extension specific register
+    BOOST_FORCEINLINE BOOST_CONSTEXPR native(native_type s) : data_(s) {}
+
+    /// @brief Constructs a native from individual scalar values
+#if !( defined(BOOST_MSVC) && (_MSC_VER < 1900) ) || defined(DOXYGEN_ONLY)
+    template <typename ... T>
+    BOOST_FORCEINLINE BOOST_CONSTEXPR native(value_type const v0, T const ... scalars) : data_{ v0, static_cast<value_type>( scalars )... } {}
+#endif
+
     /// \note Wokaround for bad MSVC codegen (lots of redundant copying of
     /// vectors and/or unaligned loads depending on the compiler version).
     /// The below copy constructor is explicitly defined for the same
@@ -125,11 +132,11 @@ namespace boost { namespace simd
     ///                                   (10.10.2013.) (Domagoj Saric)
 #if defined(BOOST_MSVC) || defined(DOXYGEN_ONLY)
     /// @brief Copy constructs a native from another one
-    BOOST_FORCEINLINE native(native const& other) : data_(other.data_) {}
+    BOOST_FORCEINLINE BOOST_CONSTEXPR native(native const& other) : data_(other.data_) {}
 #endif
 
     /// @brief Assignment between native instances
-    BOOST_FORCEINLINE native& operator=(native const& s)
+    BOOST_FORCEINLINE BOOST_CONSTEXPR native& operator=(native const& s)
     {
       // This operator= generates better code than the default-generated one
       data_ = s.data_;
@@ -137,7 +144,7 @@ namespace boost { namespace simd
     }
 
     /// @brief Assign an extension specific register to a native
-    BOOST_FORCEINLINE native& operator=(native_type s)
+    BOOST_FORCEINLINE BOOST_CONSTEXPR native& operator=(native_type s)
     {
       data_ = s;
       return *this;
@@ -147,16 +154,16 @@ namespace boost { namespace simd
     // Typecasting operators for compatibility with intrinsics
     //==========================================================================
     /// @brief Conversion operator from native to the underlying register type
-    BOOST_FORCEINLINE operator native_type &      ()        { return data_; }
+    BOOST_FORCEINLINE BOOST_CONSTEXPR operator native_type &      ()        { return data_; }
 
     /// @overload
-    BOOST_FORCEINLINE operator native_type const& ()  const { return data_; }
+    BOOST_FORCEINLINE BOOST_CONSTEXPR operator native_type const& ()  const { return data_; }
 
     /// @brief Explicit conversion from native to the underlying register type
-    BOOST_FORCEINLINE native_type const&  operator()()  const { return data_; }
+    BOOST_FORCEINLINE BOOST_CONSTEXPR native_type const&  operator()()  const { return data_; }
 
     /// @overload
-    BOOST_FORCEINLINE native_type&        operator()()        { return data_; }
+    BOOST_FORCEINLINE BOOST_CONSTEXPR native_type&        operator()()        { return data_; }
 
     //==========================================================================
     // new/delete operator to force alignment on heap of native values
@@ -172,14 +179,14 @@ namespace boost { namespace simd
 
       @return An unsigned integral equal to native::static_size
     **/
-    static BOOST_FORCEINLINE std::size_t  size()  { return static_size; }
+    static BOOST_FORCEINLINE BOOST_CONSTEXPR std::size_t  size()  { return static_size; }
 
     /*!
       @brief Checks if a given native contains 0 element
 
       @return A boolean equals to @c false
     **/
-    static BOOST_FORCEINLINE bool         empty() { return false; }
+    static BOOST_FORCEINLINE BOOST_CONSTEXPR bool         empty() { return false; }
 
     /// @brief Access to the beginning of the native register data in memory
     BOOST_FORCEINLINE
@@ -198,13 +205,13 @@ namespace boost { namespace simd
     const_iterator end()   const { return const_iterator(*this, size()); };
 
     /// @brief Random access to a given native scalar element
-    BOOST_FORCEINLINE reference operator[](std::size_t i)
+    BOOST_FORCEINLINE BOOST_CONSTEXPR reference operator[](std::size_t i)
     {
       return reference(*this, i);
     }
 
     /// @overload
-    BOOST_FORCEINLINE const_reference operator[](std::size_t i) const
+    BOOST_FORCEINLINE BOOST_CONSTEXPR const_reference operator[](std::size_t i) const
     {
       return reference(const_cast<native&>(*this), i);
     }
