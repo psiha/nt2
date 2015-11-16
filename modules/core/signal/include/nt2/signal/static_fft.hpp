@@ -56,9 +56,6 @@
 #include <boost/simd/memory/functions/load.hpp>
 #include <boost/simd/memory/functions/store.hpp>
 #include <boost/simd/memory/prefetch.hpp>
-#if !NT2_FFT_CLASSIC_SPLIT_RADIX
-#include <boost/simd/preprocessor/stack_buffer.hpp>
-#endif // !NT2_FFT_CLASSIC_SPLIT_RADIX
 #include <boost/simd/sdk/config/arch.hpp>
 #include <boost/simd/sdk/simd/extensions.hpp>
 #include <boost/simd/sdk/simd/native.hpp>
@@ -1464,8 +1461,8 @@ namespace details
 
         table /*const*/ table_;
         static permutation_indices /*const*/ initialiser;
-    };
-    template <std::uint16_t N> permutation_indices<N> /*const*/ permutation_indices<N>::initialiser;
+    }; // struct permutation_indices
+    template <std::uint16_t N> BOOST_SIMD_ALIGN_ON( 64 ) permutation_indices<N> /*const*/ permutation_indices<N>::initialiser;
 
     template <typename Scalar> BOOST_NOINLINE
     void BOOST_FASTCALL scramble_with_indices
@@ -1485,7 +1482,8 @@ namespace details
         vector_t * BOOST_DISPATCH_RESTRICT const data[] = { reinterpret_cast<vector_t *>( p_reals ), reinterpret_cast<vector_t *>( p_imags ) };
         for ( vector_t * BOOST_DISPATCH_RESTRICT const p_data : data )
         {
-            // Alexander Yee
+            // Alexander Yee Fast Bit-Reversal ('test' to see if it also
+            // improves the conjugate-pair version).
             indices_t const * BOOST_DISPATCH_RESTRICT p_indices0( reinterpret_cast<indices_t const *>( p_indices ) );
             indices_t const * BOOST_DISPATCH_RESTRICT p_indices1( p_indices0 + N / 2 / indices_t::static_size );
             vector_t        * BOOST_DISPATCH_RESTRICT p_input0  ( p_data                                   );
@@ -1498,28 +1496,27 @@ namespace details
                 auto const input2( *p_input1++ );
                 auto const input3( *p_input1++ );
 
+            #ifdef BOOST_MSVC // bad scatter codegen for SSE3
+                auto const indices01( *p_indices0++ );
+                auto const indices23( *p_indices1++ );
+
+                buf[ indices01[ 0 ] ] = input0[ 0 ]; buf[ indices01[ 1 ] ] = input0[ 1 ]; buf[ indices01[ 2 ] ] = input0[ 2 ]; buf[ indices01[ 3 ] ] = input0[ 3 ];
+                buf[ indices01[ 4 ] ] = input1[ 0 ]; buf[ indices01[ 5 ] ] = input1[ 1 ]; buf[ indices01[ 6 ] ] = input1[ 2 ]; buf[ indices01[ 7 ] ] = input1[ 3 ];
+                buf[ indices23[ 0 ] ] = input2[ 0 ]; buf[ indices23[ 1 ] ] = input2[ 1 ]; buf[ indices23[ 2 ] ] = input2[ 2 ]; buf[ indices23[ 3 ] ] = input2[ 3 ];
+                buf[ indices23[ 4 ] ] = input3[ 0 ]; buf[ indices23[ 5 ] ] = input3[ 1 ]; buf[ indices23[ 6 ] ] = input3[ 2 ]; buf[ indices23[ 7 ] ] = input3[ 3 ];
+            #else
                 auto const indices0( boost::simd::split_low ( *p_indices0   ) );
                 auto const indices1( boost::simd::split_high( *p_indices0++ ) );
                 auto const indices2( boost::simd::split_low ( *p_indices1   ) );
                 auto const indices3( boost::simd::split_high( *p_indices1++ ) );
 
-            #ifdef BOOST_MSVC // bad scatter codegen for SSE3
-                buf[ indices0[ 0 ] ] = input0[ 0 ]; buf[ indices0[ 1 ] ] = input0[ 1 ]; buf[ indices0[ 2 ] ] = input0[ 2 ]; buf[ indices0[ 3 ] ] = input0[ 3 ];
-                buf[ indices1[ 0 ] ] = input1[ 0 ]; buf[ indices1[ 1 ] ] = input1[ 1 ]; buf[ indices1[ 2 ] ] = input1[ 2 ]; buf[ indices1[ 3 ] ] = input1[ 3 ];
-                buf[ indices2[ 0 ] ] = input2[ 0 ]; buf[ indices2[ 1 ] ] = input2[ 1 ]; buf[ indices2[ 2 ] ] = input2[ 2 ]; buf[ indices2[ 3 ] ] = input2[ 3 ];
-                buf[ indices3[ 0 ] ] = input3[ 0 ]; buf[ indices3[ 1 ] ] = input3[ 1 ]; buf[ indices3[ 2 ] ] = input3[ 2 ]; buf[ indices3[ 3 ] ] = input3[ 3 ];
-            #else
-                boost::simd::aligned_store( input0, buf->data(), indices0 );
-                boost::simd::aligned_store( input1, buf->data(), indices1 );
-                boost::simd::aligned_store( input2, buf->data(), indices2 );
-                boost::simd::aligned_store( input3, buf->data(), indices3 );
+                boost::simd::aligned_store( input0, buf, indices0 );
+                boost::simd::aligned_store( input1, buf, indices1 );
+                boost::simd::aligned_store( input2, buf, indices2 );
+                boost::simd::aligned_store( input3, buf, indices3 );
             #endif // BOOST_MSVC
             }
-        #ifdef BOOST_MSVC
             std::copy_n( as_vector( buf ), N / vector_t::static_size, p_data );
-        #else
-            std::copy_n(            buf  , N / vector_t::static_size, p_data );
-        #endif // BOOST_MSVC
         }
     }
 #endif // NT2_FFT_CLASSIC_SPLIT_RADIX
@@ -1574,8 +1571,14 @@ namespace details
         /// operation (e.g. merged with the real-time-domain->fake-complex-data
         /// transformation pass).
         ///                                   (13.11.2015.) (Domagoj Saric)
-        BOOST_SIMD_ALIGNED_SCOPED_STACK_BUFFER( buf, Scalar, N );
-        scramble_with_indices( p_reals, p_imags, buf.begin(), &permutation_indices<N>::indices()[ 0 ], N );
+        /// \note A statically sized buffer is allocated outside
+        /// scramble_with_indices() (as opposed to a dynamically allocated
+        /// BOOST_SIMD_ALIGNED_SCOPED_STACK_BUFFER inside
+        /// scramble_with_indices()) to avoid MSVC 32bit having to waste one
+        /// GPR for the frame pointer inside the scramble_with_indices()
+        /// function.
+        BOOST_SIMD_ALIGN_ON( 64 ) Scalar scratch_buffer[ N ];
+        scramble_with_indices( p_reals, p_imags, scratch_buffer, &permutation_indices<N>::indices()[ 0 ], N );
 
     #endif // NT2_FFT_CLASSIC_SPLIT_RADIX
     }
