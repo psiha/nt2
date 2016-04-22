@@ -1422,7 +1422,7 @@ namespace details
     public:
         permutation_indices() { make( 0, 0, 1, N ); }
 
-    #ifdef BOOST_MSVC // MSVC14u2 chokes on the fully specified return type
+    #if defined( _MSC_VER ) && ( _MSC_VER == 1900 ) // MSVC14u2 chokes on the fully specified return type
         static auto                                    const & indices() { return initialiser.table_.indices; }
     #else
         static typename table::cache_aligned_indices_t const & indices() { return initialiser.table_.indices; }
