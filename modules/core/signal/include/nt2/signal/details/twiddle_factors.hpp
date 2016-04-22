@@ -403,8 +403,15 @@ namespace detail
     /// https://connect.microsoft.com/VisualStudio/feedback/details/814000/ice-compiling-recursive-template-c-17-integer-sequence-implementation
     ///                                       (28.01.2015.) (Domagoj Saric)
 
+    /// \note MSVC14u2 requires that we use the same type for indices as its
+    /// std::index_sequence uses (i.e. it fails to recognize the correct
+    /// array_aux specialization if std::uint16_t is used and compilation
+    /// fails).
+    ///                                       (22.04.2016.) (Domagoj Saric)
+    using index_t = std::size_t;
+
     template <typename Init, typename Vector, typename> struct array_aux;
-    template <typename Init, typename Vector, std::uint16_t... Indices>
+    template <typename Init, typename Vector, index_t... Indices>
     struct array_aux<Init, Vector, std::index_sequence<Indices...>>
     {
         static std::uint16_t const N = sizeof...( Indices );
@@ -420,9 +427,9 @@ namespace detail
         static cache_aligned_factors_t const factors;
     }; // struct array_aux
 
-    template <typename Init, typename Vector, std::uint16_t... Indices>
-    typename array_aux<Init, Vector, std::index_sequence<Indices...>>::cache_aligned_factors_t BOOST_CONSTEXPR_OR_CONST
-        array_aux<Init, Vector, std::index_sequence<Indices...>>::factors = { { Init:: template value<Indices>()... } };
+    template <typename Init, typename Vector, index_t... Indices>
+    typename array_aux<Init, Vector, std::index_sequence<Indices...>>::cache_aligned_factors_t const
+        array_aux<Init, Vector, std::index_sequence<Indices...>>::factors = {{ Init:: template value<Indices>()... }};
 
     /// \note MSVC12 explodes/dies a slow death if we try to use the
     /// static_(sine/cosine)() function templates (from static_sincos.hpp) in
@@ -449,7 +456,7 @@ namespace detail
     /// architecture you're targeting".
     ///                                       (29.10.2015.) (Domagoj Saric)
 
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin_aux( long double const x, long double const xx )
+    BOOST_CONSTEXPR BOOST_FORCEINLINE long double BOOST_FASTCALL negsin_aux( long double const x, long double const xx )
     {
         return
             -
@@ -463,11 +470,11 @@ namespace detail
                 /20/21))))))))))
             );
     }
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin_aux( long double const x                            ) { return negsin_aux( x, x * x  ); }
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR negsin    ( std::uint16_t const i, long double const omega ) { return negsin_aux( i * omega ); }
+    BOOST_CONSTEXPR BOOST_FORCEINLINE long double BOOST_FASTCALL negsin_aux( long double const x                            ) { return negsin_aux( x, x * x  ); }
+    BOOST_CONSTEXPR BOOST_FORCEINLINE long double BOOST_FASTCALL negsin    ( std::uint16_t const i, long double const omega ) { return negsin_aux( i * omega ); }
 
 
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos_aux( long double const xx )
+    BOOST_CONSTEXPR BOOST_FORCEINLINE long double BOOST_FASTCALL cos_aux( long double const xx )
     {
         return
              1-xx    /2*(1-xx/ 3/ 4*
@@ -478,31 +485,32 @@ namespace detail
             (1-xx/21/22*(1-xx/23/24
             )))))))))));
     }
-    BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR cos( std::uint16_t const i, long double const omega ) { return cos_aux( i * i * omega * omega ); }
+    BOOST_CONSTEXPR BOOST_FORCEINLINE long double BOOST_FASTCALL cos( std::uint16_t const i, long double const omega ) { return cos_aux( i * i * omega * omega ); }
 
     template <std::uint16_t N, typename Vector>
     struct twiddle_calculator
     {
-        static BOOST_FORCEINLINE long double BOOST_FASTCALL BOOST_CONSTEXPR o() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L / N; }
+        static BOOST_CONSTEXPR BOOST_FORCEINLINE long double BOOST_FASTCALL o() { return 2 * 3.1415926535897932384626433832795028841971693993751058209749445923078164062L / N; }
 
         template <std::uint16_t index>
-        BOOST_CONSTEXPR BOOST_FORCEINLINE
+        BOOST_CXX14_CONSTEXPR BOOST_FORCEINLINE
         static split_radix_twiddles<typename boost::simd::meta::compiler_vector<Vector>::type> BOOST_FASTCALL value()
         {
             std::uint16_t BOOST_CONSTEXPR_OR_CONST i    ( index * boost::simd::meta::cardinal_of<Vector>::value );
             auto          BOOST_CONSTEXPR_OR_CONST omega( o()                                                   );
+            using scalar_t = typename boost::simd::meta::scalar_of<Vector>::type;
             return
             #if NT2_FFT_CLASSIC_SPLIT_RADIX
             {
             #endif // !NT2_FFT_CLASSIC_SPLIT_RADIX
                 { // wn
-                    {    cos(   i + 0      , omega ),    cos(   i + 1      , omega ),    cos(   i + 2      , omega ),    cos(   i + 3      , omega ) },
-                    { negsin(   i + 0      , omega ), negsin(   i + 1      , omega ), negsin(   i + 2      , omega ), negsin(   i + 3      , omega ) },
+                    { (scalar_t)   cos(   i + 0      , omega ), (scalar_t)   cos(   i + 1      , omega ), (scalar_t)   cos(   i + 2      , omega ), (scalar_t)   cos(   i + 3      , omega ) },
+                    { (scalar_t)negsin(   i + 0      , omega ), (scalar_t)negsin(   i + 1      , omega ), (scalar_t)negsin(   i + 2      , omega ), (scalar_t)negsin(   i + 3      , omega ) },
                 }
             #if NT2_FFT_CLASSIC_SPLIT_RADIX
                ,{ // w3n
-                    {    cos( ( i + 0 ) * 3, omega ),    cos( ( i + 1 ) * 3, omega ),    cos( ( i + 2 ) * 3, omega ),    cos( ( i + 3 ) * 3, omega ) },
-                    { negsin( ( i + 0 ) * 3, omega ), negsin( ( i + 1 ) * 3, omega ), negsin( ( i + 2 ) * 3, omega ), negsin( ( i + 3 ) * 3, omega ) },
+                    { (scalar_t)   cos( ( i + 0 ) * 3, omega ), (scalar_t)   cos( ( i + 1 ) * 3, omega ), (scalar_t)   cos( ( i + 2 ) * 3, omega ), (scalar_t)   cos( ( i + 3 ) * 3, omega ) },
+                    { (scalar_t)negsin( ( i + 0 ) * 3, omega ), (scalar_t)negsin( ( i + 1 ) * 3, omega ), (scalar_t)negsin( ( i + 2 ) * 3, omega ), (scalar_t)negsin( ( i + 3 ) * 3, omega ) },
                 }
             }
             #endif
@@ -514,7 +522,7 @@ namespace detail
     struct static_twiddle_holder
         : array_aux<twiddle_calculator<N, Vector>, Vector, std::make_index_sequence<N / boost::simd::meta::cardinal_of<Vector>::value>>
     {
-        static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors()
+        static split_radix_twiddles<Vector> const * factors()
         {
             return reinterpret_cast<split_radix_twiddles<Vector> const *>( &static_twiddle_holder::array_aux::factors[ 0 ] );
         }
@@ -550,10 +558,7 @@ namespace detail
             factors_t factors;
         }; // cache_aligned_factors_t
 
-        static BOOST_SIMD_ALIGNED_TYPE_ON( split_radix_twiddles<Vector>, 64 ) const * factors()
-        {
-            return &storage.factors[ 0 ];
-        }
+        static split_radix_twiddles<Vector> const * factors() { return &storage.factors[ 0 ]; }
 
         static cache_aligned_factors_t const storage;
     }; // struct twiddle_holder

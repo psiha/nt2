@@ -128,15 +128,16 @@ namespace boost { namespace simd
     /// vectors and/or unaligned loads depending on the compiler version).
     /// The below copy constructor is explicitly defined for the same
     /// reason.
-    /// Latest version tested: MSVC12).
+    /// Latest version tested: MSVC12.
     ///                                   (10.10.2013.) (Domagoj Saric)
 #if defined(BOOST_MSVC) || defined(DOXYGEN_ONLY)
     /// @brief Copy constructs a native from another one
     BOOST_FORCEINLINE BOOST_CONSTEXPR native(native const& other) : data_(other.data_) {}
 #endif
 
+    //...mrmlj...BOOST_CXX14_CONSTEXPR is a workaround for MSVC14u2 compilation failures...
     /// @brief Assignment between native instances
-    BOOST_FORCEINLINE BOOST_CONSTEXPR native& operator=(native const& s)
+    BOOST_FORCEINLINE BOOST_CXX14_CONSTEXPR native& operator=(native const& s)
     {
       // This operator= generates better code than the default-generated one
       data_ = s.data_;
@@ -144,7 +145,7 @@ namespace boost { namespace simd
     }
 
     /// @brief Assign an extension specific register to a native
-    BOOST_FORCEINLINE BOOST_CONSTEXPR native& operator=(native_type s)
+    BOOST_FORCEINLINE BOOST_CXX14_CONSTEXPR native& operator=(native_type s)
     {
       data_ = s;
       return *this;
@@ -154,7 +155,7 @@ namespace boost { namespace simd
     // Typecasting operators for compatibility with intrinsics
     //==========================================================================
     /// @brief Conversion operator from native to the underlying register type
-    BOOST_FORCEINLINE BOOST_CONSTEXPR operator native_type &      ()        { return data_; }
+    BOOST_FORCEINLINE BOOST_CXX14_CONSTEXPR operator native_type &      ()        { return data_; }
 
     /// @overload
     BOOST_FORCEINLINE BOOST_CONSTEXPR operator native_type const& ()  const { return data_; }
@@ -163,7 +164,7 @@ namespace boost { namespace simd
     BOOST_FORCEINLINE BOOST_CONSTEXPR native_type const&  operator()()  const { return data_; }
 
     /// @overload
-    BOOST_FORCEINLINE BOOST_CONSTEXPR native_type&        operator()()        { return data_; }
+    BOOST_FORCEINLINE BOOST_CXX14_CONSTEXPR native_type&        operator()()        { return data_; }
 
     //==========================================================================
     // new/delete operator to force alignment on heap of native values
@@ -205,7 +206,7 @@ namespace boost { namespace simd
     const_iterator end()   const { return const_iterator(*this, size()); };
 
     /// @brief Random access to a given native scalar element
-    BOOST_FORCEINLINE BOOST_CONSTEXPR reference operator[](std::size_t i)
+    BOOST_FORCEINLINE BOOST_CXX14_CONSTEXPR reference operator[](std::size_t i)
     {
       return reference(*this, i);
     }

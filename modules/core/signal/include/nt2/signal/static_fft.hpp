@@ -1392,7 +1392,7 @@ namespace details
 #endif // MSVC
 
     template <typename> struct permutation_table;
-    template <std::uint16_t... Indices>
+    template <std::size_t... Indices>
     struct permutation_table<std::index_sequence<Indices...>>
     {
         static std::uint16_t const N = sizeof...( Indices );
@@ -1422,7 +1422,11 @@ namespace details
     public:
         permutation_indices() { make( 0, 0, 1, N ); }
 
+    #ifdef BOOST_MSVC // MSVC14u2 chokes on the fully specified return type
+        static auto                                    const & indices() { return initialiser.table_.indices; }
+    #else
         static typename table::cache_aligned_indices_t const & indices() { return initialiser.table_.indices; }
+    #endif // BOOST_MSVC
 
     private:
         static void BOOST_FASTCALL make
