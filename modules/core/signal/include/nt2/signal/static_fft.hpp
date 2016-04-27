@@ -1,7 +1,7 @@
 //==============================================================================
 //         Copyright 2003 - 2011   LASMEA UMR 6602 CNRS/Univ. Clermont II
 //         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//         Copyright 2012 - 2015   Domagoj Saric, Little Endian Ltd.
+//         Copyright 2012 - 2016   Domagoj Saric, Little Endian Ltd.
 //
 // "The FFT is one of the truly great computational developments of [the 20th]
 // century. It has changed the face of science and engineering so much that it
@@ -111,6 +111,7 @@ namespace nt2
 // http://www.katjaas.nl/fourier/fourier.html
 // http://jackschaedler.github.io/circles-sines-signals
 // http://altdevblogaday.com/2011/05/17/understanding-the-fourier-transform
+// http://www.analog.com/en/education/education-library/scientist_engineers_guide.html (The Scientist & Engineer's Guide to Digital Signal Processing, 1999)
 // http://cnx.org/content/m16334/latest/?collection=col10550/latest
 // http://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm
 // http://www.engineeringproductivitytools.com/stuff/T0001/index.html
