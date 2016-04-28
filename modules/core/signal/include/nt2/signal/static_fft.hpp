@@ -109,6 +109,7 @@ namespace nt2
 
 // General DFT/FFT information and tutorials:
 // http://www.katjaas.nl/fourier/fourier.html
+// http://www.themobilestudio.net/the-fourier-transform-part-1
 // http://jackschaedler.github.io/circles-sines-signals
 // http://altdevblogaday.com/2011/05/17/understanding-the-fourier-transform
 // http://www.analog.com/en/education/education-library/scientist_engineers_guide.html (The Scientist & Engineer's Guide to Digital Signal Processing, 1999)
