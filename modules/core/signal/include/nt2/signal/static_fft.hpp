@@ -1,7 +1,8 @@
 //==============================================================================
 //         Copyright 2003 - 2011   LASMEA UMR 6602 CNRS/Univ. Clermont II
 //         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//         Copyright 2012 - 2016   Domagoj Saric, Little Endian Ltd.
+//         Copyright 2012 - 2015   Domagoj Saric, Little Endian Ltd.
+//         Copyright 2016          Domagoj Saric
 //
 // "The FFT is one of the truly great computational developments of [the 20th]
 // century. It has changed the face of science and engineering so much that it
@@ -218,6 +219,7 @@ namespace nt2
 //   http://infoscience.epfl.ch/record/33925/files/DuhamelV87.pdf
 //   http://www.springerlink.com/content/m0611260519h6jv1
 // - sliding DFT
+//   https://www.dsprelated.com/showarticle/776.php "Understanding and Implementing the Sliding DFT" [Eric Jacobsen]
 //   http://dream.cs.bath.ac.uk/SDFT
 //   http://lac.linuxaudio.org/2008/download/papers/10.pdf
 //   http://www.convict.lu/Jeunes/ultimate_stuff/RFT.pdf
